@@ -1,10 +1,15 @@
 <?php
-/*
-Plugin Name: Image Map Hotspots
-Description: Create interactive image maps with clickable hotspots
-Version: 1.0.0
-Author: Your Name
-*/
+/**
+ * Plugin Name: MapPinner - Interactive Image Hotspots
+ * Plugin URI: https://example.com/mappinner
+ * Description: Create interactive image maps with customizable hotspots, tooltips, and links.
+ * Version: 0.4.0
+ * Author: Madu
+ * Author URI: https://example.com
+ * Text Domain: mappinner
+ * Domain Path: /languages
+ * License: GPL v2 or later
+ */
 
 // Prevent direct access
 if (!defined('ABSPATH')) {
@@ -13,7 +18,7 @@ if (!defined('ABSPATH')) {
 
 // Register activation hook
 function image_map_hotspots_activate() {
-    // Initialize plugin options if they don't exist
+    // Initialize plugin options if they dont exist
     if (!get_option('image_map_hotspots_data')) {
         add_option('image_map_hotspots_data', array());
     }
@@ -209,7 +214,7 @@ add_action('admin_init', 'image_map_hotspots_delete');
 // Shortcode handler
 function image_map_hotspots_shortcode($atts) {
     $atts = shortcode_atts(array(
-        'id' => ''
+        'id' => '',
     ), $atts);
     
     if (empty($atts['id'])) {
