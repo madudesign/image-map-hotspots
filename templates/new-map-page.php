@@ -1,97 +1,142 @@
 <?php
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-// Check user capabilities
-if (!current_user_can('manage_options')) {
-    wp_die(__('You do not have sufficient permissions to access this page.', 'mappinner'));
-}
-
-// Get map ID from URL if editing
-$map_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// Ensure WordPress admin styles are loaded
+wp_enqueue_media();
+wp_enqueue_style('wp-admin');
 ?>
-
 <div class="wrap">
-    <h1 class="wp-heading-inline">
-        <?php echo $map_id ? __('Edit Map', 'mappinner') : __('Add New Map', 'mappinner'); ?>
-    </h1>
-    <hr class="wp-header-end">
-
-    <div id="mappinner-editor-app" data-nonce="<?php echo wp_create_nonce('mappinner_nonce'); ?>" data-map-id="<?php echo esc_attr($map_id); ?>">
-        <div class="mappinner-editor-container">
-            <div class="mappinner-toolbar">
-                <button type="button" class="button button-primary mappinner-save">
-                    <?php _e('Save Map', 'mappinner'); ?>
-                </button>
-                <button type="button" class="button mappinner-preview">
-                    <?php _e('Preview', 'mappinner'); ?>
-                </button>
-                <button type="button" class="button mappinner-import-csv">
-                    <?php _e('Import CSV', 'mappinner'); ?>
-                </button>
-            </div>
-
-            <div class="mappinner-main">
-                <div class="mappinner-workspace">
-                    <div class="mappinner-image-container">
-                        <div class="mappinner-image-wrapper">
-                            <div class="mappinner-placeholder">
-                                <p><?php _e('Select an image to get started', 'mappinner'); ?></p>
-                                <button type="button" class="button button-hero mappinner-select-image">
-                                    <?php _e('Select Image', 'mappinner'); ?>
-                                </button>
-                            </div>
+    <h1><?php echo $editing ? 'Edit' : 'Create'; ?> Image Map</h1>
+    
+    <form method="post" action="" id="image-map-form">
+        <?php wp_nonce_field('save_image_map', 'image_map_nonce'); ?>
+        <input type="hidden" name="action" value="save_image_map">
+        <?php if ($editing) : ?>
+            <input type="hidden" name="map_id" value="<?php echo esc_attr($map_id); ?>">
+        <?php endif; ?>
+        
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="map-title">Map Title</label>
+                </th>
+                <td>
+                    <input type="text" id="map-title" name="map_title" class="regular-text" value="<?php echo esc_attr($map_title); ?>" required>
+                </td>
+            </tr>
+            
+            <tr>
+                <th scope="row">
+                    <label for="map-image">Map Image</label>
+                </th>
+                <td>
+                    <div class="media-upload-container">
+                        <input type="hidden" id="map-image-id" name="map_image_id" value="<?php echo esc_attr($map_image_id); ?>">
+                        <div id="map-image-preview" class="image-preview">
+                            <?php if ($map_image_url) : ?>
+                                <img src="<?php echo esc_url($map_image_url); ?>" alt="Map Image" style="max-width: 100%; height: auto;">
+                            <?php else : ?>
+                                <p>No image selected</p>
+                            <?php endif; ?>
                         </div>
+                        <p class="submit">
+                            <button type="button" id="upload-image-button" class="button button-secondary"><?php echo $map_image_url ? 'Change Image' : 'Select Image'; ?></button>
+                            <?php if ($map_image_url) : ?>
+                                <button type="button" id="remove-image-button" class="button button-secondary">Remove Image</button>
+                            <?php endif; ?>
+                        </p>
                     </div>
+                </td>
+            </tr>
+        </table>
+        
+        <?php if ($map_image_url) : ?>
+            <div class="img-map-container postbox">
+                <h2 class="hndle"><span>Image Map Editor</span></h2>
+                <div class="inside">
+                    <div class="zoom-controls">
+                        <button type="button" id="zoom-in" class="button" title="Zoom In">+</button>
+                        <button type="button" id="zoom-out" class="button" title="Zoom Out">-</button>
+                        <button type="button" id="zoom-reset" class="button" title="Reset Zoom">Reset</button>
+                        <span id="zoom-level">100%</span>
+                    </div>
+                    
+                    <div class="img-map-wrapper">
+                        <img src="<?php echo esc_url($map_image_url); ?>" alt="Map Image" class="img-map-img">
+                    </div>
+                    
+                    <div class="hotspots-container">
+                        <h3>Hotspots</h3>
+                        <p class="description">Click on the image to add hotspots. You can edit titles or remove existing hotspots below.</p>
+                        <ul id="hotspots-list">
+                            <?php if ($hotspots) : ?>
+                                <?php foreach ($hotspots as $hotspot) : ?>
+                                    <li class="hotspot-item" data-hotspot-id="<?php echo esc_attr($hotspot['id']); ?>" data-x="<?php echo esc_attr($hotspot['x']); ?>" data-y="<?php echo esc_attr($hotspot['y']); ?>">
+                                        <input type="text" class="hotspot-title regular-text" value="<?php echo esc_attr($hotspot['title']); ?>">
+                                        <span class="hotspot-coords">X: <?php echo round($hotspot['x']); ?>, Y: <?php echo round($hotspot['y']); ?></span>
+                                        <button type="button" class="remove-hotspot button button-secondary">Remove</button>
+                                    </li>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+                    
+                    <input type="hidden" id="hotspots-data" name="hotspots_data" value="<?php echo esc_attr(json_encode($hotspots)); ?>">
                 </div>
-
-                <div class="mappinner-sidebar">
-                    <div class="mappinner-panel">
-                        <h2><?php _e('Map Settings', 'mappinner'); ?></h2>
-                        <div class="mappinner-form-group">
-                            <label for="mappinner-title"><?php _e('Title', 'mappinner'); ?></label>
-                            <input type="text" id="mappinner-title" class="regular-text" value="" required>
-                        </div>
-                        <div class="mappinner-form-group">
-                            <label><?php _e('Image', 'mappinner'); ?></label>
-                            <button type="button" class="button mappinner-select-image">
-                                <?php _e('Select Image', 'mappinner'); ?>
-                            </button>
-                            <div class="mappinner-image-preview"></div>
-                        </div>
-                    </div>
-
-                    <div class="mappinner-panel">
-                        <h2><?php _e('Hotspots', 'mappinner'); ?></h2>
-                        <div class="mappinner-hotspots-list"></div>
-                        <p class="description"><?php _e('Click on the image to add hotspots or use CSV import', 'mappinner'); ?></p>
-                        <div class="mappinner-csv-template">
-                            <h4><?php _e('CSV Format', 'mappinner'); ?></h4>
-                            <p class="description"><?php _e('Download the template or create a CSV file with these columns:', 'mappinner'); ?></p>
-                            <code>x,y,title,label,url,color</code>
-                            <p class="description"><?php _e('Example:', 'mappinner'); ?></p>
-                            <code>25,35,First Point,Point 1,https://example.com,#ff0000</code>
-                            <br>
-                            <a href="#" class="button button-small mappinner-download-template" style="margin-top: 10px;">
-                                <?php _e('Download Template', 'mappinner'); ?>
-                            </a>
-                        </div>
-                    </div>
-                </div>
             </div>
-        </div>
-    </div>
-
-    <!-- CSV Import Dialog -->
-    <div id="mappinner-csv-dialog" title="<?php _e('Import Hotspots from CSV', 'mappinner'); ?>" style="display:none;">
-        <div class="mappinner-csv-upload">
-            <p><?php _e('Upload a CSV file with hotspot data:', 'mappinner'); ?></p>
-            <input type="file" id="mappinner-csv-file" accept=".csv" style="display: none;">
-            <button type="button" class="button button-hero" id="mappinner-csv-upload-btn">
-                <?php _e('Select CSV File', 'mappinner'); ?>
-            </button>
-            <div id="mappinner-csv-preview" style="margin-top: 20px;"></div>
-        </div>
-    </div>
+        <?php endif; ?>
+        
+        <p class="submit">
+            <button type="submit" class="button button-primary button-large">Save Image Map</button>
+        </p>
+    </form>
 </div>
+
+<script>
+jQuery(document).ready(function($) {
+    // Media uploader
+    var mediaUploader = null;
+    
+    $('#upload-image-button').on('click', function(e) {
+        e.preventDefault();
+        
+        // If the uploader object has already been created, reopen the dialog
+        if (mediaUploader) {
+            mediaUploader.open();
+            return;
+        }
+        
+        // Create the media uploader
+        mediaUploader = wp.media({
+            title: 'Select Map Image',
+            button: {
+                text: 'Use this image'
+            },
+            multiple: false
+        });
+        
+        // When an image is selected, run a callback
+        mediaUploader.on('select', function() {
+            var attachment = mediaUploader.state().get('selection').first().toJSON();
+            $('#map-image-id').val(attachment.id);
+            $('#map-image-preview').html('<img src="' + attachment.url + '" alt="Map Image" style="max-width: 100%; height: auto;">');
+            $('#remove-image-button').show();
+            
+            // Reload the page to initialize the image map editor
+            location.reload();
+        });
+        
+        // Open the uploader dialog
+        mediaUploader.open();
+    });
+    
+    // Remove image
+    $('#remove-image-button').on('click', function(e) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to remove this image?')) {
+            $('#map-image-id').val('');
+            $('#map-image-preview').html('<p>No image selected</p>');
+            $(this).hide();
+            location.reload();
+        }
+    });
+});
+</script>
