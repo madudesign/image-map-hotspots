@@ -11,350 +11,153 @@
  * License: GPL v2 or later
  */
 
+// Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MAPPINNER_VERSION', '1.0.0');
-define('MAPPINNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('MAPPINNER_PLUGIN_URL', plugin_dir_url(__FILE__));
-
-class MapPinner {
-    private static $instance = null;
-
-    public static function get_instance() {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-
-    private function __construct() {
-        // Initialize plugin
-        add_action('init', array($this, 'init'));
-        
-        // Add menu and admin pages
-        add_action('admin_menu', array($this, 'add_admin_menu'));
-        
-        // Register scripts and styles
-        add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
-        add_action('wp_enqueue_scripts', array($this, 'frontend_enqueue_scripts'));
-        
-        // Register shortcode
-        add_shortcode('image_map', array($this, 'render_shortcode'));
-        
-        // Register AJAX handlers
-        add_action('wp_ajax_mappinner_save_map', array($this, 'ajax_save_map'));
-        add_action('wp_ajax_mappinner_get_map', array($this, 'ajax_get_map'));
-        add_action('wp_ajax_mappinner_delete_map', array($this, 'ajax_delete_map'));
-        add_action('wp_ajax_mappinner_get_maps', array($this, 'ajax_get_maps'));
-    }
-
-    public function init() {
-        load_plugin_textdomain('mappinner', false, dirname(plugin_basename(__FILE__)) . '/languages');
-    }
-
-    public static function activate() {
-        // Add capabilities
-        $admin = get_role('administrator');
-        if ($admin) {
-            $admin->add_cap('manage_options');
-        }
-        
-        // Create database tables
-        self::create_tables();
-        
-        // Flush rewrite rules
-        flush_rewrite_rules();
-    }
-
-    public static function deactivate() {
-        flush_rewrite_rules();
-    }
-
-    private static function create_tables() {
-        global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'mappinner_maps';
-        
-        // Check if table exists first
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            // Create the table
-            $sql = "CREATE TABLE $table_name (
-                id bigint(20) NOT NULL AUTO_INCREMENT,
-                title varchar(255) NOT NULL,
-                image_url text NOT NULL,
-                hotspots longtext,
-                created_at datetime DEFAULT NULL,
-                updated_at datetime DEFAULT NULL,
-                PRIMARY KEY  (id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
-
-            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-            
-            // Try to create the table
-            if (!function_exists('dbDelta')) {
-                require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-            }
-            
-            dbDelta($sql);
-            
-            // Verify table was created
-            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-                // If dbDelta failed, try direct query
-                $wpdb->query($sql);
-            }
-            
-            // Add timestamp triggers if table exists
-            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
-                // Add trigger for created_at
-                $wpdb->query("
-                    CREATE TRIGGER IF NOT EXISTS {$table_name}_created 
-                    BEFORE INSERT ON {$table_name}
-                    FOR EACH ROW
-                    SET NEW.created_at = NOW(), NEW.updated_at = NOW()
-                ");
-                
-                // Add trigger for updated_at
-                $wpdb->query("
-                    CREATE TRIGGER IF NOT EXISTS {$table_name}_updated 
-                    BEFORE UPDATE ON {$table_name}
-                    FOR EACH ROW
-                    SET NEW.updated_at = NOW()
-                ");
-            }
-        }
-    }
-
-    public function add_admin_menu() {
-        add_menu_page(
-            __('Image Maps', 'mappinner'),
-            __('Image Maps', 'mappinner'),
-            'manage_options',
-            'mappinner',
-            array($this, 'render_admin_page'),
-            'dashicons-location-alt'
-        );
-
-        add_submenu_page(
-            'mappinner',
-            __('All Maps', 'mappinner'),
-            __('All Maps', 'mappinner'),
-            'manage_options',
-            'mappinner',
-            array($this, 'render_admin_page')
-        );
-
-        add_submenu_page(
-            'mappinner',
-            __('Add New Map', 'mappinner'),
-            __('Add New', 'mappinner'),
-            'manage_options',
-            'mappinner-new',
-            array($this, 'render_new_map_page')
-        );
-    }
-
-    public function admin_enqueue_scripts($hook) {
-        if (!strpos($hook, 'mappinner')) {
-            return;
-        }
-
-        wp_enqueue_media();
-        wp_enqueue_script('jquery');
-        wp_enqueue_script('jquery-ui-core');
-        wp_enqueue_script('jquery-ui-draggable');
-        wp_enqueue_script('jquery-ui-droppable');
-        wp_enqueue_script('jquery-ui-dialog');
-        wp_enqueue_style('wp-jquery-ui-dialog');
-
+// Enqueue admin scripts and styles
+function image_map_hotspots_admin_enqueue() {
+    $screen = get_current_screen();
+    if ($screen && strpos($screen->id, 'image-map-hotspots') !== false) {
         wp_enqueue_style(
-            'mappinner-admin',
-            MAPPINNER_PLUGIN_URL . 'assets/css/admin.css',
+            'image-map-hotspots-admin',
+            plugins_url('assets/css/admin.css', __FILE__),
             array(),
-            MAPPINNER_VERSION
+            '1.0.0'
         );
-
+        
         wp_enqueue_script(
-            'mappinner-admin',
-            MAPPINNER_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery', 'jquery-ui-core', 'jquery-ui-draggable', 'jquery-ui-dialog'),
-            MAPPINNER_VERSION,
-            true
-        );
-
-        wp_localize_script('mappinner-admin', 'mappinnerAdmin', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('mappinner_nonce'),
-            'strings' => array(
-                'select_image' => __('Select Image', 'mappinner'),
-                'use_image' => __('Use this image', 'mappinner'),
-                'save_error' => __('Failed to save map', 'mappinner'),
-                'delete_confirm' => __('Are you sure you want to delete this hotspot?', 'mappinner')
-            )
-        ));
-    }
-
-    public function frontend_enqueue_scripts() {
-        wp_enqueue_style(
-            'mappinner',
-            MAPPINNER_PLUGIN_URL . 'assets/css/image-map-hotspots.css',
-            array(),
-            MAPPINNER_VERSION
-        );
-
-        wp_enqueue_script(
-            'mappinner',
-            MAPPINNER_PLUGIN_URL . 'assets/js/image-map-hotspots.js',
+            'image-map-hotspots-admin',
+            plugins_url('assets/js/admin.js', __FILE__),
             array('jquery'),
-            MAPPINNER_VERSION,
+            '1.0.0',
             true
         );
     }
+}
+add_action('admin_enqueue_scripts', 'image_map_hotspots_admin_enqueue');
 
-    public function render_admin_page() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.'));
-        }
-        
-        include MAPPINNER_PLUGIN_DIR . 'templates/admin-page.php';
-    }
+// Enqueue frontend scripts and styles
+function image_map_hotspots_enqueue() {
+    wp_enqueue_style(
+        'image-map-hotspots',
+        plugins_url('assets/css/image-map-hotspots.css', __FILE__),
+        array(),
+        '1.0.0'
+    );
+    
+    wp_enqueue_script(
+        'image-map-hotspots',
+        plugins_url('assets/js/image-map-hotspots.js', __FILE__),
+        array('jquery'),
+        '1.0.0',
+        true
+    );
+}
+add_action('wp_enqueue_scripts', 'image_map_hotspots_enqueue');
 
-    public function render_new_map_page() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.'));
-        }
-        
-        include MAPPINNER_PLUGIN_DIR . 'templates/new-map-page.php';
-    }
+// Add admin menu
+function image_map_hotspots_admin_menu() {
+    add_menu_page(
+        'Image Map Hotspots',
+        'Image Maps',
+        'manage_options',
+        'image-map-hotspots',
+        'image_map_hotspots_admin_page',
+        'dashicons-location-alt'
+    );
+    
+    add_submenu_page(
+        'image-map-hotspots',
+        'Add New Image Map',
+        'Add New',
+        'manage_options',
+        'image-map-hotspots-new',
+        'image_map_hotspots_new_page'
+    );
+}
+add_action('admin_menu', 'image_map_hotspots_admin_menu');
 
-    public function render_shortcode($atts) {
-        $atts = shortcode_atts(array(
-            'id' => '',
-            'image' => '',
-            'hotspots' => '[]'
-        ), $atts, 'image_map');
-
-        ob_start();
-        include MAPPINNER_PLUGIN_DIR . 'templates/shortcode.php';
-        return ob_get_clean();
-    }
-
-    public function ajax_save_map() {
-        check_ajax_referer('mappinner_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'mappinner')));
-        }
-
-        $map_id = isset($_POST['map_id']) ? intval($_POST['map_id']) : 0;
-        $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
-        $image_url = isset($_POST['image_url']) ? esc_url_raw($_POST['image_url']) : '';
-        $hotspots = isset($_POST['hotspots']) ? stripslashes($_POST['hotspots']) : '[]';
-
-        if (empty($title) || empty($image_url)) {
-            wp_send_json_error(array('message' => __('Title and image are required.', 'mappinner')));
-        }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'mappinner_maps';
-        
-        $data = array(
-            'title' => $title,
-            'image_url' => $image_url,
-            'hotspots' => $hotspots
-        );
-        
-        $format = array('%s', '%s', '%s');
-
-        if ($map_id > 0) {
-            // Update existing map
-            $result = $wpdb->update($table_name, $data, array('id' => $map_id), $format, array('%d'));
-        } else {
-            // Insert new map
-            $result = $wpdb->insert($table_name, $data, $format);
-            $map_id = $wpdb->insert_id;
-        }
-
-        if ($result === false) {
-            wp_send_json_error(array(
-                'message' => __('Database error: ', 'mappinner') . $wpdb->last_error
-            ));
-        }
-
-        wp_send_json_success(array(
-            'map_id' => $map_id,
-            'message' => __('Map saved successfully.', 'mappinner')
-        ));
-    }
-
-    public function ajax_get_map() {
-        check_ajax_referer('mappinner_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'mappinner')));
-        }
-
-        $map_id = isset($_POST['map_id']) ? intval($_POST['map_id']) : 0;
-        if (!$map_id) {
-            wp_send_json_error(array('message' => __('Invalid map ID.', 'mappinner')));
-        }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'mappinner_maps';
-        $map = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $map_id));
-
-        if (!$map) {
-            wp_send_json_error(array('message' => __('Map not found.', 'mappinner')));
-        }
-
-        wp_send_json_success($map);
-    }
-
-    public function ajax_delete_map() {
-        check_ajax_referer('mappinner_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'mappinner')));
-        }
-
-        $map_id = isset($_POST['map_id']) ? intval($_POST['map_id']) : 0;
-        if (!$map_id) {
-            wp_send_json_error(array('message' => __('Invalid map ID.', 'mappinner')));
-        }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'mappinner_maps';
-        $result = $wpdb->delete($table_name, array('id' => $map_id), array('%d'));
-
-        if ($result === false) {
-            wp_send_json_error(array('message' => __('Failed to delete map.', 'mappinner')));
-        }
-
-        wp_send_json_success(array('message' => __('Map deleted successfully.', 'mappinner')));
-    }
-
-    public function ajax_get_maps() {
-        check_ajax_referer('mappinner_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'mappinner')));
-        }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'mappinner_maps';
-        $maps = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
-
-        wp_send_json_success($maps);
-    }
+// Admin main page
+function image_map_hotspots_admin_page() {
+    $image_maps = get_option('image_map_hotspots_data', array());
+    include plugin_dir_path(__FILE__) . 'templates/admin-page.php';
 }
 
-// Register activation and deactivation hooks
-register_activation_hook(__FILE__, array('MapPinner', 'activate'));
-register_deactivation_hook(__FILE__, array('MapPinner', 'deactivate'));
-
-// Initialize the plugin
-function mappinner_init() {
-    return MapPinner::get_instance();
+// Admin new/edit page
+function image_map_hotspots_new_page() {
+    $editing = false;
+    $map_id = '';
+    $map_title = '';
+    $map_image_id = '';
+    $map_image_url = '';
+    $hotspots = array();
+    
+    if (isset($_GET['id'])) {
+        $image_maps = get_option('image_map_hotspots_data', array());
+        $map_id = sanitize_text_field($_GET['id']);
+        
+        if (isset($image_maps[$map_id])) {
+            $editing = true;
+            $map_data = $image_maps[$map_id];
+            $map_title = $map_data['title'];
+            $map_image_id = $map_data['image_id'];
+            $map_image_url = wp_get_attachment_url($map_image_id);
+            $hotspots = isset($map_data['hotspots']) ? $map_data['hotspots'] : array();
+        }
+    }
+    
+    include plugin_dir_path(__FILE__) . 'templates/new-map-page.php';
 }
-add_action('plugins_loaded', 'mappinner_init');
+
+// Save image map
+function image_map_hotspots_save() {
+    if (!isset($_POST['image_map_nonce']) || !wp_verify_nonce($_POST['image_map_nonce'], 'save_image_map')) {
+        wp_die('Invalid nonce');
+    }
+    
+    $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : uniqid('map_');
+    $map_title = sanitize_text_field($_POST['map_title']);
+    $map_image_id = intval($_POST['map_image_id']);
+    $hotspots = json_decode(stripslashes($_POST['hotspots_data']), true);
+    
+    $image_maps = get_option('image_map_hotspots_data', array());
+    $image_maps[$map_id] = array(
+        'title' => $map_title,
+        'image_id' => $map_image_id,
+        'hotspots' => $hotspots
+    );
+    
+    update_option('image_map_hotspots_data', $image_maps);
+    
+    wp_redirect(admin_url('admin.php?page=image-map-hotspots'));
+    exit;
+}
+add_action('admin_post_save_image_map', 'image_map_hotspots_save');
+
+// Shortcode handler
+function image_map_hotspots_shortcode($atts) {
+    $atts = shortcode_atts(array(
+        'id' => ''
+    ), $atts);
+    
+    if (empty($atts['id'])) {
+        return '';
+    }
+    
+    $image_maps = get_option('image_map_hotspots_data', array());
+    if (!isset($image_maps[$atts['id']])) {
+        return '';
+    }
+    
+    $map_data = $image_maps[$atts['id']];
+    $map_title = $map_data['title'];
+    $image_url = wp_get_attachment_url($map_data['image_id']);
+    $hotspots = isset($map_data['hotspots']) ? $map_data['hotspots'] : array();
+    
+    ob_start();
+    include plugin_dir_path(__FILE__) . 'templates/shortcode.php';
+    return ob_get_clean();
+}
+add_shortcode('image_map', 'image_map_hotspots_shortcode');
