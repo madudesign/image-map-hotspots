@@ -5,13 +5,12 @@ if (!defined('ABSPATH')) {
 
 // Get map data if ID is provided
 if (!empty($atts['id'])) {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'mappinner_maps';
-    $map = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $atts['id']));
+    $image_maps = get_option('image_map_hotspots_data', array());
     
-    if ($map) {
-        $atts['image'] = $map->image_url;
-        $atts['hotspots'] = $map->hotspots;
+    if (isset($image_maps[$atts['id']])) {
+        $map_data = $image_maps[$atts['id']];
+        $atts['image'] = wp_get_attachment_url($map_data['image_id']);
+        $atts['hotspots'] = json_encode($map_data['hotspots']);
     }
 }
 
@@ -30,8 +29,8 @@ if (!is_array($hotspots)) {
 $map_id = 'map_' . ((!empty($atts['id'])) ? $atts['id'] : uniqid());
 
 // Enqueue required styles and scripts
-wp_enqueue_style('mappinner');
-wp_enqueue_script('mappinner');
+wp_enqueue_style('image-map-hotspots');
+wp_enqueue_script('image-map-hotspots');
 ?>
 
 <div class="image-map-container" id="<?php echo esc_attr($map_id); ?>">

@@ -9,14 +9,20 @@ if (!current_user_can('manage_options')) {
 }
 
 // Get all maps
-global $wpdb;
-$table_name = $wpdb->prefix . 'mappinner_maps';
-$maps = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
+$image_maps = get_option('image_map_hotspots_data', array());
+$maps = array();
+foreach ($image_maps as $map_id => $map_data) {
+    $map = new stdClass();
+    $map->id = $map_id;
+    $map->title = $map_data['title'];
+    $map->created_at = isset($map_data['created_at']) ? $map_data['created_at'] : current_time('mysql');
+    $maps[] = $map;
+}
 ?>
 
 <div class="wrap">
     <h1 class="wp-heading-inline"><?php _e('Image Maps', 'mappinner'); ?></h1>
-    <a href="<?php echo esc_url(admin_url('admin.php?page=mappinner-new')); ?>" class="page-title-action"><?php _e('Add New', 'mappinner'); ?></a>
+    <a href="<?php echo esc_url(admin_url('admin.php?page=image-map-hotspots-new')); ?>" class="page-title-action"><?php _e('Add New', 'mappinner'); ?></a>
     
     <hr class="wp-header-end">
 
@@ -41,7 +47,7 @@ $maps = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC")
                     <tr>
                         <td>
                             <strong>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=mappinner-new&id=' . $map->id)); ?>">
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=image-map-hotspots-new&id=' . $map->id)); ?>">
                                     <?php echo esc_html($map->title); ?>
                                 </a>
                             </strong>
@@ -56,7 +62,7 @@ $maps = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC")
                             <?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($map->created_at))); ?>
                         </td>
                         <td>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=mappinner-new&id=' . $map->id)); ?>" class="button button-small">
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=image-map-hotspots-new&id=' . $map->id)); ?>" class="button button-small">
                                 <?php _e('Edit', 'mappinner'); ?>
                             </a>
                             <button type="button" class="button button-small button-link-delete delete-map" data-id="<?php echo esc_attr($map->id); ?>">

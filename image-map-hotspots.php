@@ -57,6 +57,16 @@ function image_map_hotspots_admin_enqueue($hook) {
         'ajaxurl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('image_map_hotspots_nonce')
     ));
+    
+    // Add strings for media uploader
+    wp_localize_script('image-map-hotspots-admin', 'mappinnerAdmin', array(
+        'strings' => array(
+            'select_image' => __('Select Image', 'mappinner'),
+            'use_image' => __('Use This Image', 'mappinner'),
+            'delete_confirm' => __('Are you sure you want to delete this hotspot?', 'mappinner'),
+            'save_error' => __('Error saving map.', 'mappinner')
+        )
+    ));
 }
 add_action('admin_enqueue_scripts', 'image_map_hotspots_admin_enqueue');
 
@@ -210,6 +220,117 @@ function image_map_hotspots_delete() {
     }
 }
 add_action('admin_init', 'image_map_hotspots_delete');
+
+// AJAX handler for saving maps
+function image_map_hotspots_save_map() {
+    // Check nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'image_map_hotspots_nonce')) {
+        wp_send_json_error(array('message' => 'Security check failed'));
+    }
+
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'You do not have permission to perform this action'));
+    }
+
+    // Get and sanitize data
+    $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : 'map_' . uniqid();
+    $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
+    $image_url = isset($_POST['image_url']) ? esc_url_raw($_POST['image_url']) : '';
+    $hotspots = isset($_POST['hotspots']) ? $_POST['hotspots'] : '[]';
+
+    // Validate data
+    if (empty($title) || empty($image_url)) {
+        wp_send_json_error(array('message' => 'Title and image are required'));
+    }
+
+    // Get attachment ID from URL
+    $image_id = attachment_url_to_postid($image_url);
+    if (!$image_id) {
+        $image_id = 0;
+    }
+
+    // Save map data
+    $image_maps = get_option('image_map_hotspots_data', array());
+    $image_maps[$map_id] = array(
+        'title' => $title,
+        'image_id' => $image_id,
+        'hotspots' => json_decode($hotspots, true),
+        'created_at' => current_time('mysql')
+    );
+    
+    update_option('image_map_hotspots_data', $image_maps);
+    
+    wp_send_json_success(array(
+        'message' => 'Map saved successfully',
+        'map_id' => $map_id
+    ));
+}
+add_action('wp_ajax_mappinner_save_map', 'image_map_hotspots_save_map');
+
+// AJAX handler for getting map data
+function image_map_hotspots_get_map() {
+    // Check nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'image_map_hotspots_nonce')) {
+        wp_send_json_error(array('message' => 'Security check failed'));
+    }
+
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'You do not have permission to perform this action'));
+    }
+
+    // Get map ID
+    $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : '';
+    if (empty($map_id)) {
+        wp_send_json_error(array('message' => 'Map ID is required'));
+    }
+
+    // Get map data
+    $image_maps = get_option('image_map_hotspots_data', array());
+    if (!isset($image_maps[$map_id])) {
+        wp_send_json_error(array('message' => 'Map not found'));
+    }
+
+    $map_data = $image_maps[$map_id];
+    
+    wp_send_json_success(array(
+        'title' => $map_data['title'],
+        'image_url' => wp_get_attachment_url($map_data['image_id']),
+        'hotspots' => json_encode($map_data['hotspots'])
+    ));
+}
+add_action('wp_ajax_mappinner_get_map', 'image_map_hotspots_get_map');
+
+// AJAX handler for deleting maps
+function image_map_hotspots_delete_map() {
+    // Check nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'mappinner_nonce')) {
+        wp_send_json_error(array('message' => 'Security check failed'));
+    }
+
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'You do not have permission to perform this action'));
+    }
+
+    // Get map ID
+    $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : '';
+    if (empty($map_id)) {
+        wp_send_json_error(array('message' => 'Map ID is required'));
+    }
+
+    // Delete map data
+    $image_maps = get_option('image_map_hotspots_data', array());
+    if (isset($image_maps[$map_id])) {
+        unset($image_maps[$map_id]);
+        update_option('image_map_hotspots_data', $image_maps);
+        wp_send_json_success(array('message' => 'Map deleted successfully'));
+    } else {
+        wp_send_json_error(array('message' => 'Map not found'));
+    }
+}
+add_action('wp_ajax_mappinner_delete_map', 'image_map_hotspots_delete_map');
 
 // Shortcode handler
 function image_map_hotspots_shortcode($atts) {

@@ -448,7 +448,7 @@ jQuery(document).ready(function($) {
                 data: data,
                 success: (response) => {
                     if (response.success) {
-                        window.location.href = 'admin.php?page=mappinner&message=saved';
+                        window.location.href = 'admin.php?page=image-map-hotspots&message=saved';
                     } else {
                         alert(response.data.message || mappinnerAdmin.strings.save_error);
                     }
