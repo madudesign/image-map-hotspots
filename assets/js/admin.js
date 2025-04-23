@@ -56,6 +56,15 @@ jQuery(document).ready(function($) {
 
             // Preview toggle
             $('.mappinner-preview').on('click', () => this.togglePreview());
+            
+            // Export hotspots
+            $('.mappinner-export-hotspots').on('click', () => this.exportHotspots());
+            
+            // Import hotspots
+            $('.mappinner-import-hotspots').on('click', () => this.importHotspots());
+            
+            // Debug hotspots
+            $('#debug-hotspots').on('click', () => this.debugHotspots());
 
             // Image container events
             this.imageContainer.on('mousedown', (e) => {
@@ -107,7 +116,7 @@ jQuery(document).ready(function($) {
                 // Calculate new scale
                 const delta = e.originalEvent.deltaY;
                 const factor = delta > 0 ? 0.9 : 1.1;
-                const newScale = Math.min(Math.max(this.scale * factor, 0.5), 3);
+                const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
 
                 // Calculate new position to keep the point under the mouse fixed
                 this.position.x = mouseX - (pointX * newScale);
@@ -131,6 +140,8 @@ jQuery(document).ready(function($) {
         loadMapData() {
             if (!this.mapId) return;
 
+            console.log('Loading map data for ID:', this.mapId);
+
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
@@ -139,15 +150,45 @@ jQuery(document).ready(function($) {
                     nonce: this.nonce,
                     map_id: this.mapId
                 },
+                dataType: 'json',
                 success: (response) => {
-                    if (response.success) {
+                    console.log('Load map response:', response);
+                    
+                    if (response && response.success && response.data) {
                         this.titleInput.val(response.data.title);
                         this.updateImage(response.data.image_url);
-                        if (response.data.hotspots) {
-                            this.hotspots = JSON.parse(response.data.hotspots);
-                            this.renderHotspots();
+                        
+                        try {
+                            if (response.data.hotspots) {
+                                const hotspots = JSON.parse(response.data.hotspots);
+                                console.log('Parsed hotspots:', hotspots);
+                                
+                                if (Array.isArray(hotspots) && hotspots.length > 0) {
+                                    this.hotspots = hotspots;
+                                    this.renderHotspots();
+                                    console.log('Loaded', hotspots.length, 'hotspots');
+                                } else {
+                                    console.log('No hotspots found or empty array');
+                                }
+                            } else {
+                                console.log('No hotspots data in response');
+                            }
+                        } catch (e) {
+                            console.error('Error parsing hotspots:', e);
+                            alert('Error loading hotspots: ' + e.message);
+                        }
+                    } else {
+                        console.error('Invalid response format or error:', response);
+                        if (response && !response.success && response.data && response.data.message) {
+                            alert('Error: ' + response.data.message);
                         }
                     }
+                },
+                error: (xhr, status, error) => {
+                    console.error('Load error:', error);
+                    console.error('Status:', status);
+                    console.error('Response:', xhr.responseText);
+                    alert('Error loading map data: ' + error);
                 }
             });
         }
@@ -235,7 +276,7 @@ jQuery(document).ready(function($) {
             const pointY = (centerY - this.position.y) / this.scale;
 
             // Calculate new scale
-            const newScale = Math.min(Math.max(this.scale * factor, 0.5), 3);
+            const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
 
             // Calculate new position to keep the center point fixed
             this.position.x = centerX - (pointX * newScale);
@@ -433,6 +474,26 @@ jQuery(document).ready(function($) {
         }
 
         saveMap() {
+            // Show loading indicator
+            const $saveButton = $('.mappinner-save');
+            const originalText = $saveButton.text();
+            $saveButton.text('Saving...').prop('disabled', true);
+            
+            // Check if we have an image
+            if (!this.wrapper.find('img').length) {
+                alert('Please select an image first.');
+                $saveButton.text(originalText).prop('disabled', false);
+                return;
+            }
+            
+            // Check if we have a title
+            if (!this.titleInput.val().trim()) {
+                alert('Please enter a title for the map.');
+                $saveButton.text(originalText).prop('disabled', false);
+                return;
+            }
+            
+            // Prepare data
             const data = {
                 action: 'mappinner_save_map',
                 nonce: this.nonce,
@@ -441,17 +502,58 @@ jQuery(document).ready(function($) {
                 image_url: this.wrapper.find('img').attr('src'),
                 hotspots: JSON.stringify(this.hotspots)
             };
-
+            
+            console.log('Saving map with data:', data);
+            console.log('Hotspots count:', this.hotspots.length);
+            console.log('Hotspots data:', this.hotspots);
+            
+            // Make AJAX request
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
                 data: data,
+                dataType: 'json',
                 success: (response) => {
-                    if (response.success) {
-                        window.location.href = 'admin.php?page=image-map-hotspots&message=saved';
+                    console.log('Save response:', response);
+                    
+                    if (response && response.success) {
+                        // Update map ID if this is a new map
+                        if (!this.mapId && response.data && response.data.map_id) {
+                            this.mapId = response.data.map_id;
+                            console.log('New map ID assigned:', this.mapId);
+                            
+                            // Update the data attribute
+                            this.container.attr('data-map-id', this.mapId);
+                        }
+                        
+                        // Show success message
+                        const hotspotsCount = this.hotspots.length;
+                        const message = `Map saved successfully with ${hotspotsCount} hotspots.\n\nWould you like to continue editing this map?`;
+                        
+                        if (confirm(message)) {
+                            // Stay on the page and refresh
+                            window.location.href = `admin.php?page=image-map-hotspots-new&id=${this.mapId}`;
+                        } else {
+                            // Redirect to maps list
+                            window.location.href = 'admin.php?page=image-map-hotspots&message=saved';
+                        }
                     } else {
-                        alert(response.data.message || mappinnerAdmin.strings.save_error);
+                        // Show error message
+                        const errorMsg = response && response.data && response.data.message 
+                            ? response.data.message 
+                            : 'Unknown error occurred while saving.';
+                        
+                        alert('Error: ' + errorMsg);
+                        $saveButton.text(originalText).prop('disabled', false);
                     }
+                },
+                error: (xhr, status, error) => {
+                    console.error('Save error:', error);
+                    console.error('Status:', status);
+                    console.error('Response:', xhr.responseText);
+                    
+                    alert('Error saving map: ' + error);
+                    $saveButton.text(originalText).prop('disabled', false);
                 }
             });
         }
@@ -479,6 +581,250 @@ jQuery(document).ready(function($) {
 
             this.position = { x: dx, y: dy };
             this.updateTransform();
+        }
+        
+        debugHotspots() {
+            const $output = $('#debug-output');
+            $output.empty().show();
+            
+            let html = '<h4>Current Hotspots:</h4>';
+            
+            if (this.hotspots.length === 0) {
+                html += '<p>No hotspots in memory.</p>';
+            } else {
+                html += `<p>Total hotspots in memory: ${this.hotspots.length}</p>`;
+                html += '<ul>';
+                this.hotspots.forEach((hotspot, index) => {
+                    html += `<li>Hotspot ${index + 1}:<br>`;
+                    html += `ID: ${hotspot.id}<br>`;
+                    html += `Position: x=${hotspot.x}, y=${hotspot.y}<br>`;
+                    html += `Title: ${hotspot.title || '(empty)'}<br>`;
+                    html += `Label: ${hotspot.label || '(empty)'}<br>`;
+                    html += `URL: ${hotspot.blogUrl || '(empty)'}<br>`;
+                    html += `Color: ${hotspot.color}<br>`;
+                    html += `Active: ${hotspot.active ? 'Yes' : 'No'}</li>`;
+                });
+                html += '</ul>';
+            }
+            
+            // Add map data
+            html += '<h4>Map Data:</h4>';
+            html += `<p>Map ID: ${this.mapId || '(new map)'}</p>`;
+            html += `<p>Title: ${this.titleInput.val() || '(empty)'}</p>`;
+            html += `<p>Image URL: ${this.wrapper.find('img').attr('src') || '(no image)'}</p>`;
+            
+            // Add debug info for AJAX
+            if (this.mapId) {
+                html += '<button type="button" id="load-map-data" class="button">Load Map Data from Database</button>';
+                html += '<div id="server-data" style="margin-top: 10px;"></div>';
+            }
+            
+            $output.html(html);
+            
+            // Add event handler for the load button
+            $('#load-map-data').on('click', () => {
+                const $serverData = $('#server-data');
+                $serverData.html('<p>Loading data from server...</p>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'mappinner_debug',
+                        nonce: this.nonce
+                    },
+                    success: (response) => {
+                        if (response.success) {
+                            const maps = response.data.maps;
+                            let serverHtml = '<h4>Server Data:</h4>';
+                            
+                            if (!maps[this.mapId]) {
+                                serverHtml += `<p>No data found for map ID: ${this.mapId}</p>`;
+                            } else {
+                                const map = maps[this.mapId];
+                                const hotspotsCount = map.hotspots ? map.hotspots.length : 0;
+                                
+                                serverHtml += `<p>Map found with ${hotspotsCount} hotspots</p>`;
+                                
+                                if (hotspotsCount > 0) {
+                                    serverHtml += '<ul>';
+                                    map.hotspots.forEach((hotspot, index) => {
+                                        serverHtml += `<li>Hotspot ${index + 1}: x=${hotspot.x}, y=${hotspot.y}, title="${hotspot.title || ''}"</li>`;
+                                    });
+                                    serverHtml += '</ul>';
+                                }
+                            }
+                            
+                            $serverData.html(serverHtml);
+                        } else {
+                            $serverData.html(`<p class="error">Error: ${response.data.message}</p>`);
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        $serverData.html(`<p class="error">Error: ${error}</p>`);
+                    }
+                });
+            });
+        }
+        
+        // Parse CSV line handling quoted values with commas
+        parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+                        // Double quotes inside quotes - add a single quote
+                        current += '"';
+                        i++;
+                    } else {
+                        // Toggle quote mode
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // End of field
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            // Add the last field
+            result.push(current);
+            
+            return result;
+        }
+        
+        exportHotspots() {
+            if (this.hotspots.length === 0) {
+                alert('No hotspots to export.');
+                return;
+            }
+            
+            // Convert hotspots to CSV format
+            let csv = 'x,y,title,label,url,color\n';
+            
+            this.hotspots.forEach(hotspot => {
+                if (!hotspot.active) return;
+                
+                const x = Math.round(hotspot.x * 100) / 100;
+                const y = Math.round(hotspot.y * 100) / 100;
+                const title = hotspot.title || '';
+                const label = hotspot.label || '';
+                const url = hotspot.blogUrl || '';
+                const color = hotspot.color || '#4f46e5';
+                
+                csv += `${x},${y},"${title.replace(/"/g, '""')}","${label.replace(/"/g, '""')}","${url}","${color}"\n`;
+            });
+            
+            // Create a download link
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'hotspots.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+        
+        importHotspots() {
+            // Create a file input element
+            const fileInput = $('<input type="file" accept=".csv" style="display:none">');
+            $('body').append(fileInput);
+            
+            fileInput.on('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const content = event.target.result;
+                    this.parseImportedHotspots(content);
+                };
+                reader.readAsText(file);
+                
+                // Remove the file input
+                fileInput.remove();
+            });
+            
+            // Trigger the file input click
+            fileInput.click();
+        }
+        
+        parseImportedHotspots(content) {
+            // Split the content into lines
+            const lines = content.split('\n');
+            if (lines.length < 2) {
+                alert('Invalid CSV format.');
+                return;
+            }
+            
+            // Check the header
+            const header = lines[0].toLowerCase();
+            if (!header.includes('x') || !header.includes('y')) {
+                alert('CSV must have at least x and y columns.');
+                return;
+            }
+            
+            // Parse the header to find column indices
+            const columns = header.split(',');
+            const xIndex = columns.indexOf('x');
+            const yIndex = columns.indexOf('y');
+            const titleIndex = columns.indexOf('title');
+            const labelIndex = columns.indexOf('label');
+            const urlIndex = columns.indexOf('url');
+            const colorIndex = columns.indexOf('color');
+            
+            // Parse the data lines
+            const newHotspots = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // Handle quoted values with commas
+                const values = this.parseCSVLine(line);
+                
+                if (values.length <= Math.max(xIndex, yIndex)) continue;
+                
+                const x = parseFloat(values[xIndex]);
+                const y = parseFloat(values[yIndex]);
+                
+                if (isNaN(x) || isNaN(y) || x < 0 || x > 100 || y < 0 || y > 100) continue;
+                
+                const hotspot = {
+                    id: 'hotspot_' + Date.now() + '_' + i,
+                    x: x,
+                    y: y,
+                    title: titleIndex >= 0 && values.length > titleIndex ? values[titleIndex] : '',
+                    label: labelIndex >= 0 && values.length > labelIndex ? values[labelIndex] : '',
+                    blogUrl: urlIndex >= 0 && values.length > urlIndex ? values[urlIndex] : '',
+                    color: colorIndex >= 0 && values.length > colorIndex ? values[colorIndex] : '#4f46e5',
+                    active: true,
+                    order: newHotspots.length
+                };
+                
+                newHotspots.push(hotspot);
+            }
+            
+            if (newHotspots.length === 0) {
+                alert('No valid hotspots found in the CSV file.');
+                return;
+            }
+            
+            // Confirm import
+            if (confirm(`Import ${newHotspots.length} hotspots? This will replace any existing hotspots.`)) {
+                this.hotspots = newHotspots;
+                this.renderHotspots();
+            }
         }
     }
 

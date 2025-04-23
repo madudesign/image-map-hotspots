@@ -225,80 +225,199 @@ add_action('admin_init', 'image_map_hotspots_delete');
 function image_map_hotspots_save_map() {
     // Check nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'image_map_hotspots_nonce')) {
+        error_log('Security check failed');
+        
+        // If this is a form submission, redirect back with error
+        if (!wp_doing_ajax()) {
+            wp_redirect(admin_url('admin.php?page=image-map-hotspots&error=security'));
+            exit;
+        }
+        
         wp_send_json_error(array('message' => 'Security check failed'));
+        return;
     }
 
     // Check user capabilities
     if (!current_user_can('manage_options')) {
+        error_log('Permission check failed');
+        
+        // If this is a form submission, redirect back with error
+        if (!wp_doing_ajax()) {
+            wp_redirect(admin_url('admin.php?page=image-map-hotspots&error=permission'));
+            exit;
+        }
+        
         wp_send_json_error(array('message' => 'You do not have permission to perform this action'));
+        return;
     }
 
     // Get and sanitize data
-    $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : 'map_' . uniqid();
+    $map_id = isset($_POST['map_id']) && !empty($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : 'map_' . uniqid();
     $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
     $image_url = isset($_POST['image_url']) ? esc_url_raw($_POST['image_url']) : '';
-    $hotspots = isset($_POST['hotspots']) ? $_POST['hotspots'] : '[]';
+    $hotspots = isset($_POST['hotspots']) ? wp_unslash($_POST['hotspots']) : '[]';
+
+    // For debugging
+    error_log('Saving map: ' . $map_id);
+    error_log('Title: ' . $title);
+    error_log('Image URL: ' . $image_url);
+    error_log('Hotspots: ' . substr($hotspots, 0, 100) . '...');
+    error_log('Hotspots length: ' . strlen($hotspots));
 
     // Validate data
     if (empty($title) || empty($image_url)) {
+        error_log('Title or image URL is empty');
+        
+        // If this is a form submission, redirect back with error
+        if (!wp_doing_ajax()) {
+            wp_redirect(admin_url('admin.php?page=image-map-hotspots&error=missing_data'));
+            exit;
+        }
+        
         wp_send_json_error(array('message' => 'Title and image are required'));
+        return;
     }
 
     // Get attachment ID from URL
     $image_id = attachment_url_to_postid($image_url);
     if (!$image_id) {
+        error_log('Could not get attachment ID from URL: ' . $image_url);
         $image_id = 0;
     }
 
+    // Parse hotspots
+    $hotspots_array = json_decode($hotspots, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log('JSON decode error: ' . json_last_error_msg());
+        error_log('Hotspots JSON: ' . $hotspots);
+        $hotspots_array = array();
+    }
+    
+    error_log('Hotspots count: ' . count($hotspots_array));
+    error_log('Hotspots array: ' . print_r($hotspots_array, true));
+
     // Save map data
     $image_maps = get_option('image_map_hotspots_data', array());
+    
+    // Create or update the map
     $image_maps[$map_id] = array(
         'title' => $title,
         'image_id' => $image_id,
-        'hotspots' => json_decode($hotspots, true),
+        'image_url' => $image_url, // Store the URL as well in case the attachment ID is not found
+        'hotspots' => $hotspots_array,
         'created_at' => current_time('mysql')
     );
     
-    update_option('image_map_hotspots_data', $image_maps);
+    $result = update_option('image_map_hotspots_data', $image_maps);
+    error_log('Update option result: ' . ($result ? 'true' : 'false'));
     
+    // Verify the data was saved correctly
+    $saved_data = get_option('image_map_hotspots_data');
+    if (isset($saved_data[$map_id])) {
+        $saved_hotspots = $saved_data[$map_id]['hotspots'];
+        $hotspots_count = is_array($saved_hotspots) ? count($saved_hotspots) : 0;
+        error_log('Map saved successfully with ' . $hotspots_count . ' hotspots');
+        error_log('Saved hotspots: ' . print_r($saved_hotspots, true));
+    } else {
+        error_log('Map not found in saved data');
+    }
+    
+    // If this is a form submission, redirect to the maps list
+    if (!wp_doing_ajax()) {
+        wp_redirect(admin_url('admin.php?page=image-map-hotspots&message=saved'));
+        exit;
+    }
+    
+    // Otherwise, send JSON response for AJAX
     wp_send_json_success(array(
         'message' => 'Map saved successfully',
-        'map_id' => $map_id
+        'map_id' => $map_id,
+        'hotspots_count' => count($hotspots_array)
     ));
 }
 add_action('wp_ajax_mappinner_save_map', 'image_map_hotspots_save_map');
+
+// Debug function to dump options
+function image_map_hotspots_debug() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'Permission denied'));
+        return;
+    }
+    
+    $image_maps = get_option('image_map_hotspots_data', array());
+    wp_send_json_success(array(
+        'maps' => $image_maps
+    ));
+}
+add_action('wp_ajax_mappinner_debug', 'image_map_hotspots_debug');
 
 // AJAX handler for getting map data
 function image_map_hotspots_get_map() {
     // Check nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'image_map_hotspots_nonce')) {
+        error_log('Get map: Security check failed');
         wp_send_json_error(array('message' => 'Security check failed'));
+        return;
     }
 
     // Check user capabilities
     if (!current_user_can('manage_options')) {
+        error_log('Get map: Permission check failed');
         wp_send_json_error(array('message' => 'You do not have permission to perform this action'));
+        return;
     }
 
     // Get map ID
     $map_id = isset($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : '';
     if (empty($map_id)) {
+        error_log('Get map: Map ID is required');
         wp_send_json_error(array('message' => 'Map ID is required'));
+        return;
     }
+
+    error_log('Getting map data for ID: ' . $map_id);
 
     // Get map data
     $image_maps = get_option('image_map_hotspots_data', array());
+    error_log('All maps: ' . print_r(array_keys($image_maps), true));
+    
     if (!isset($image_maps[$map_id])) {
+        error_log('Get map: Map not found with ID: ' . $map_id);
         wp_send_json_error(array('message' => 'Map not found'));
+        return;
     }
 
     $map_data = $image_maps[$map_id];
+    error_log('Map data found: ' . print_r($map_data, true));
     
-    wp_send_json_success(array(
+    // Check if hotspots exist
+    if (!isset($map_data['hotspots']) || !is_array($map_data['hotspots'])) {
+        error_log('Get map: No hotspots found or invalid format');
+        $map_data['hotspots'] = array();
+    } else {
+        error_log('Get map: Found ' . count($map_data['hotspots']) . ' hotspots');
+        error_log('Hotspots data: ' . print_r($map_data['hotspots'], true));
+    }
+    
+    // Ensure we have a valid image URL
+    $image_url = wp_get_attachment_url($map_data['image_id']);
+    if (empty($image_url)) {
+        error_log('Get map: Image URL is empty for ID: ' . $map_data['image_id']);
+        // Try to get the URL from the map data if available
+        if (isset($map_data['image_url'])) {
+            $image_url = $map_data['image_url'];
+            error_log('Get map: Using image URL from map data: ' . $image_url);
+        }
+    }
+    
+    $response = array(
         'title' => $map_data['title'],
-        'image_url' => wp_get_attachment_url($map_data['image_id']),
+        'image_url' => $image_url,
         'hotspots' => json_encode($map_data['hotspots'])
-    ));
+    );
+    
+    error_log('Get map response: ' . print_r($response, true));
+    wp_send_json_success($response);
 }
 add_action('wp_ajax_mappinner_get_map', 'image_map_hotspots_get_map');
 
@@ -339,21 +458,36 @@ function image_map_hotspots_shortcode($atts) {
     ), $atts);
     
     if (empty($atts['id'])) {
-        return '';
+        error_log('Shortcode: Empty ID');
+        return '<p>Error: Image map ID is required.</p>';
     }
     
     $image_maps = get_option('image_map_hotspots_data', array());
     if (!isset($image_maps[$atts['id']])) {
-        return '';
+        error_log('Shortcode: Map not found with ID: ' . $atts['id']);
+        return '<p>Error: Image map not found.</p>';
     }
     
     $map_data = $image_maps[$atts['id']];
     $map_title = $map_data['title'];
     $image_url = wp_get_attachment_url($map_data['image_id']);
+    
+    if (empty($image_url)) {
+        error_log('Shortcode: Image URL is empty for map: ' . $atts['id']);
+        return '<p>Error: Image not found.</p>';
+    }
+    
     $hotspots = isset($map_data['hotspots']) ? $map_data['hotspots'] : array();
+    error_log('Shortcode: Found ' . count($hotspots) . ' hotspots for map: ' . $atts['id']);
+    
+    // Ensure frontend scripts and styles are enqueued
+    wp_enqueue_style('image-map-hotspots');
+    wp_enqueue_script('image-map-hotspots');
     
     ob_start();
     include plugin_dir_path(__FILE__) . 'templates/shortcode.php';
-    return ob_get_clean();
+    $output = ob_get_clean();
+    
+    return $output;
 }
 add_shortcode('image_map', 'image_map_hotspots_shortcode');

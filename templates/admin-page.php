@@ -54,7 +54,7 @@ foreach ($image_maps as $map_id => $map_data) {
                         </td>
                         <td>
                             <code>[image_map id="<?php echo esc_attr($map->id); ?>"]</code>
-                            <button type="button" class="button button-small copy-shortcode" data-shortcode='[image_map id="<?php echo esc_attr($map->id); ?>"]'>
+                            <button type="button" class="button button-small copy-shortcode" data-shortcode='[image_map id="<?php echo esc_attr($map->id); ?>"]' onclick="navigator.clipboard.writeText('[image_map id=\'<?php echo esc_attr($map->id); ?>\']')">
                                 <?php _e('Copy', 'mappinner'); ?>
                             </button>
                         </td>
@@ -94,6 +94,15 @@ foreach ($image_maps as $map_id => $map_data) {
             </ol>
             
             <p class="description"><?php _e('Replace "YOUR_MAP_ID" with the ID of your map from the table above.', 'mappinner'); ?></p>
+        </div>
+    </div>
+    
+    <div id="mappinner-debug" class="postbox" style="margin-top: 20px;">
+        <h3 class="hndle"><span><?php _e('Debug', 'mappinner'); ?></span></h3>
+        <div class="inside">
+            <p><?php _e('Click the button below to debug the plugin:', 'mappinner'); ?></p>
+            <button type="button" id="debug-button" class="button">Debug Database</button>
+            <div id="debug-output" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border: 1px solid #ddd; display: none; max-height: 300px; overflow: auto;"></div>
         </div>
     </div>
 </div>
@@ -140,6 +149,66 @@ jQuery(document).ready(function($) {
                 } else {
                     alert(response.data.message);
                 }
+            }
+        });
+    });
+    
+    // Debug functionality
+    $('#debug-button').on('click', function() {
+        const $button = $(this);
+        const $output = $('#debug-output');
+        
+        $button.prop('disabled', true).text('Loading...');
+        $output.empty().show();
+        
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'mappinner_debug',
+                nonce: '<?php echo wp_create_nonce("image_map_hotspots_nonce"); ?>'
+            },
+            success: function(response) {
+                $button.prop('disabled', false).text('Debug Database');
+                
+                if (response.success) {
+                    const maps = response.data.maps;
+                    let html = '<h4>Database Contents:</h4>';
+                    
+                    if (Object.keys(maps).length === 0) {
+                        html += '<p>No maps found in database.</p>';
+                    } else {
+                        html += '<ul>';
+                        for (const mapId in maps) {
+                            const map = maps[mapId];
+                            const hotspotsCount = map.hotspots ? map.hotspots.length : 0;
+                            
+                            html += `<li><strong>Map ID:</strong> ${mapId}<br>`;
+                            html += `<strong>Title:</strong> ${map.title}<br>`;
+                            html += `<strong>Image ID:</strong> ${map.image_id}<br>`;
+                            html += `<strong>Hotspots:</strong> ${hotspotsCount}<br>`;
+                            
+                            if (hotspotsCount > 0) {
+                                html += '<ul>';
+                                map.hotspots.forEach((hotspot, index) => {
+                                    html += `<li>Hotspot ${index + 1}: x=${hotspot.x}, y=${hotspot.y}, title="${hotspot.title}"</li>`;
+                                });
+                                html += '</ul>';
+                            }
+                            
+                            html += '</li>';
+                        }
+                        html += '</ul>';
+                    }
+                    
+                    $output.html(html);
+                } else {
+                    $output.html(`<p class="error">Error: ${response.data.message}</p>`);
+                }
+            },
+            error: function(xhr, status, error) {
+                $button.prop('disabled', false).text('Debug Database');
+                $output.html(`<p class="error">Error: ${error}</p>`);
             }
         });
     });

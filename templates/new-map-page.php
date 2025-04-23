@@ -49,6 +49,19 @@ wp_enqueue_script('jquery-ui-dialog');
                                 <p class="description"><?php _e('No hotspots added yet.', 'mappinner'); ?></p>
                             <?php endif; ?>
                         </div>
+                        
+                        <div class="mappinner-hotspots-actions" style="margin-top: 15px;">
+                            <button type="button" class="button mappinner-export-hotspots"><?php _e('Export Hotspots', 'mappinner'); ?></button>
+                            <button type="button" class="button mappinner-import-hotspots"><?php _e('Import Hotspots', 'mappinner'); ?></button>
+                        </div>
+                    </div>
+                    
+                    <div class="mappinner-panel">
+                        <h2><?php _e('Debug', 'mappinner'); ?></h2>
+                        <div class="mappinner-form-group">
+                            <button type="button" id="debug-hotspots" class="button"><?php _e('Debug Hotspots', 'mappinner'); ?></button>
+                            <div id="debug-output" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border: 1px solid #ddd; display: none; max-height: 300px; overflow: auto;"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -132,7 +132,7 @@ jQuery(document).ready(function($) {
             const imageX = (pointX - this.position.x) / this.scale;
             const imageY = (pointY - this.position.y) / this.scale;
 
-            // Calculate new scale, preventing zoom below 100%
+            // Calculate new scale, min 100%, max 500%
             let newScale = this.scale * factor;
             newScale = Math.max(1, Math.min(newScale, 5));
 
