@@ -146,6 +146,7 @@ jQuery(document).ready(function($) {
                 this.scale = newScale;
                 this.controls.zoomLevel.text(Math.round(newScale * 100) + '%');
 
+                // Update the transform
                 this.updateTransform();
             }
         }
@@ -158,16 +159,21 @@ jQuery(document).ready(function($) {
         }
 
         updateTransform() {
-            // Update the wrapper transform for panning and zooming
+            // Update the wrapper transform for panning only
             this.wrapper.css({
-                transform: `translate(${this.position.x}px, ${this.position.y}px) scale(${this.scale})`,
+                transform: `translate(${this.position.x}px, ${this.position.y}px)`,
                 '--map-scale': this.scale
             });
             
-            // Update hotspots to maintain their size regardless of zoom
-            this.wrapper.find('.hotspot').css({
-                transform: `translate(-50%, -50%) scale(${1/this.scale})`
+            // Apply scaling to the image with high quality rendering
+            this.image.css({
+                'transform': `scale(${this.scale})`,
+                'transform-origin': '0 0',
+                'image-rendering': 'high-quality',
+                '-ms-interpolation-mode': 'bicubic'
             });
+            
+            // No need to update hotspots as they use margin-left and margin-top for positioning
         }
 
         handleTouchDevices() {
@@ -230,6 +236,8 @@ jQuery(document).ready(function($) {
                 y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top
             };
         }
+        
+        // No need for updateHotspots method as we're using margin-left and margin-top for positioning
     }
 
     // Initialize all image maps on the page

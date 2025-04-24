@@ -260,17 +260,22 @@ jQuery(document).ready(function($) {
         }
 
         updateTransform() {
-            // Update the wrapper transform for panning and zooming
+            // Update the wrapper transform for panning only
             this.wrapper.css({
-                transform: `translate(${this.position.x}px, ${this.position.y}px) scale(${this.scale})`,
-                transformOrigin: '0 0',
+                transform: `translate(${this.position.x}px, ${this.position.y}px)`,
                 '--map-scale': this.scale
             });
             
-            // Update hotspots to maintain their size regardless of zoom
-            this.wrapper.find('.mappinner-hotspot').css({
-                transform: `translate(-50%, -50%) scale(${1/this.scale})`
+            // Apply scaling to the image with high quality rendering
+            const img = this.wrapper.find('img');
+            img.css({
+                'transform': `scale(${this.scale})`,
+                'transform-origin': '0 0',
+                'image-rendering': 'high-quality',
+                '-ms-interpolation-mode': 'bicubic'
             });
+            
+            // No need to update hotspots as they use margin-left and margin-top for positioning
         }
 
         zoom(factor) {

@@ -56,6 +56,10 @@
     height: auto;
     object-fit: contain;
     display: block;
+    image-rendering: -webkit-optimize-contrast; /* For Chrome */
+    image-rendering: crisp-edges; /* For Firefox */
+    -ms-interpolation-mode: nearest-neighbor; /* For IE */
+    backface-visibility: hidden; /* Prevent blurry text during transitions */
 }
 
 /* Hotspots */
@@ -64,7 +68,8 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    transform: translate(-50%, -50%);
+    margin-left: -12px; /* Half the width */
+    margin-top: -12px; /* Half the height */
     cursor: move;
     border: 2px solid white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -75,8 +80,9 @@
     font-weight: bold;
     color: white;
     z-index: 100;
-    transform-origin: center;
-    will-change: transform;
+    margin-bottom: 0;
+    margin-right: 0;
+    padding: 0;
 }
 
 .mappinner-hotspot.is-dragging {

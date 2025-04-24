@@ -257,12 +257,14 @@ function image_map_hotspots_save_map() {
     $image_url = isset($_POST['image_url']) ? esc_url_raw($_POST['image_url']) : '';
     $hotspots = isset($_POST['hotspots']) ? wp_unslash($_POST['hotspots']) : '[]';
 
-    // For debugging
-    error_log('Saving map: ' . $map_id);
-    error_log('Title: ' . $title);
-    error_log('Image URL: ' . $image_url);
-    error_log('Hotspots: ' . substr($hotspots, 0, 100) . '...');
-    error_log('Hotspots length: ' . strlen($hotspots));
+    // Only log if WP_DEBUG is defined and true
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('Saving map: ' . $map_id);
+        error_log('Title: ' . $title);
+        error_log('Image URL: ' . $image_url);
+        error_log('Hotspots: ' . substr($hotspots, 0, 100) . '...');
+        error_log('Hotspots length: ' . strlen($hotspots));
+    }
 
     // Validate data
     if (empty($title) || empty($image_url)) {
