@@ -139,9 +139,7 @@ jQuery(document).ready(function($) {
 
         loadMapData() {
             if (!this.mapId) return;
-
-            console.log('Loading map data for ID:', this.mapId);
-
+            
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
@@ -152,8 +150,6 @@ jQuery(document).ready(function($) {
                 },
                 dataType: 'json',
                 success: (response) => {
-                    console.log('Load map response:', response);
-                    
                     if (response && response.success && response.data) {
                         this.titleInput.val(response.data.title);
                         this.updateImage(response.data.image_url);
@@ -161,34 +157,16 @@ jQuery(document).ready(function($) {
                         try {
                             if (response.data.hotspots) {
                                 const hotspots = JSON.parse(response.data.hotspots);
-                                console.log('Parsed hotspots:', hotspots);
                                 
                                 if (Array.isArray(hotspots) && hotspots.length > 0) {
                                     this.hotspots = hotspots;
                                     this.renderHotspots();
-                                    console.log('Loaded', hotspots.length, 'hotspots');
-                                } else {
-                                    console.log('No hotspots found or empty array');
                                 }
-                            } else {
-                                console.log('No hotspots data in response');
                             }
                         } catch (e) {
                             console.error('Error parsing hotspots:', e);
-                            alert('Error loading hotspots: ' + e.message);
-                        }
-                    } else {
-                        console.error('Invalid response format or error:', response);
-                        if (response && !response.success && response.data && response.data.message) {
-                            alert('Error: ' + response.data.message);
                         }
                     }
-                },
-                error: (xhr, status, error) => {
-                    console.error('Load error:', error);
-                    console.error('Status:', status);
-                    console.error('Response:', xhr.responseText);
-                    alert('Error loading map data: ' + error);
                 }
             });
         }
@@ -214,68 +192,42 @@ jQuery(document).ready(function($) {
             
             // Clear wrapper and add new image
             this.wrapper.empty();
+            
+            // Create image container
+            const container = $('<div class="image-container"></div>');
+            
             const img = $('<img>', {
                 src: url,
-                alt: 'Map',
-                on: {
-                    load: () => {
-                        this.resetView();
-                        this.renderHotspots();
-                    }
-                }
+                alt: 'Map'
             });
-            this.wrapper.append(img);
+            
+            container.append(img);
+            this.wrapper.append(container);
+            
+            img.on('load', () => {
+                this.resetView();
+                this.renderHotspots();
+            });
         }
 
         resetView() {
-            const container = this.imageContainer;
-            const image = this.wrapper.find('img');
-            
-            if (!image.length) return;
-            
-            // Reset transform
             this.scale = 1;
             this.position = { x: 0, y: 0 };
-            
-            // Update display
             this.controls.zoomLevel.text('100%');
-            this.updateTransform();
-            
-            // Center the image
-            const containerWidth = container.width();
-            const containerHeight = container.height();
-            const imageWidth = image[0].naturalWidth;
-            const imageHeight = image[0].naturalHeight;
-            
-            // Calculate scaling to fit container while maintaining aspect ratio
-            const scaleX = containerWidth / imageWidth;
-            const scaleY = containerHeight / imageHeight;
-            this.scale = Math.min(scaleX, scaleY);
-            
-            // Center the image
-            this.position.x = (containerWidth - (imageWidth * this.scale)) / 2;
-            this.position.y = (containerHeight - (imageHeight * this.scale)) / 2;
-            
             this.updateTransform();
         }
 
         updateTransform() {
-            // Update the wrapper transform for panning only
+            // Apply transform to the wrapper for panning
             this.wrapper.css({
-                transform: `translate(${this.position.x}px, ${this.position.y}px)`,
-                '--map-scale': this.scale
+                transform: `translate(${this.position.x}px, ${this.position.y}px)`
             });
             
-            // Apply scaling to the image with high quality rendering
-            const img = this.wrapper.find('img');
-            img.css({
-                'transform': `scale(${this.scale})`,
-                'transform-origin': '0 0',
-                'image-rendering': 'high-quality',
-                '-ms-interpolation-mode': 'bicubic'
+            // Apply scaling directly to the image container
+            this.wrapper.find('.image-container').css({
+                transform: `scale(${this.scale})`,
+                transformOrigin: '0 0'
             });
-            
-            // No need to update hotspots as they use margin-left and margin-top for positioning
         }
 
         zoom(factor) {
@@ -322,6 +274,8 @@ jQuery(document).ready(function($) {
         renderHotspots() {
             $('.mappinner-hotspot').remove();
             
+            const container = this.wrapper.find('.image-container');
+            
             this.hotspots.forEach((hotspot, index) => {
                 if (!hotspot.active) return;
 
@@ -336,7 +290,7 @@ jQuery(document).ready(function($) {
                     backgroundColor: hotspot.color
                 });
 
-                this.wrapper.append(element);
+                container.append(element);
                 this.makeHotspotDraggable(element);
             });
 
@@ -356,14 +310,16 @@ jQuery(document).ready(function($) {
                 this.isHotspotDragging = true;
                 element.addClass('is-dragging');
 
-                const rect = this.wrapper[0].getBoundingClientRect();
+                const container = this.wrapper.find('.image-container');
+                const rect = container[0].getBoundingClientRect();
                 startX = e.clientX - rect.left;
                 startY = e.clientY - rect.top;
 
                 const moveHandler = (e) => {
                     if (!isDragging) return;
 
-                    const rect = this.wrapper[0].getBoundingClientRect();
+                    const container = this.wrapper.find('.image-container');
+                    const rect = container[0].getBoundingClientRect();
                     const x = ((e.clientX - rect.left) / rect.width) * 100;
                     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
@@ -515,10 +471,6 @@ jQuery(document).ready(function($) {
                 hotspots: JSON.stringify(this.hotspots)
             };
             
-            console.log('Saving map with data:', data);
-            console.log('Hotspots count:', this.hotspots.length);
-            console.log('Hotspots data:', this.hotspots);
-            
             // Make AJAX request
             $.ajax({
                 url: ajaxurl,
@@ -526,15 +478,10 @@ jQuery(document).ready(function($) {
                 data: data,
                 dataType: 'json',
                 success: (response) => {
-                    console.log('Save response:', response);
-                    
                     if (response && response.success) {
                         // Update map ID if this is a new map
                         if (!this.mapId && response.data && response.data.map_id) {
                             this.mapId = response.data.map_id;
-                            console.log('New map ID assigned:', this.mapId);
-                            
-                            // Update the data attribute
                             this.container.attr('data-map-id', this.mapId);
                         }
                         
@@ -560,10 +507,6 @@ jQuery(document).ready(function($) {
                     }
                 },
                 error: (xhr, status, error) => {
-                    console.error('Save error:', error);
-                    console.error('Status:', status);
-                    console.error('Response:', xhr.responseText);
-                    
                     alert('Error saving map: ' + error);
                     $saveButton.text(originalText).prop('disabled', false);
                 }
@@ -580,8 +523,8 @@ jQuery(document).ready(function($) {
             this.isDragging = true;
             this.imageContainer.addClass('is-dragging');
             this.lastMousePosition = {
-                x: e.clientX - this.position.x,
-                y: e.clientY - this.position.y
+                x: e.clientX,
+                y: e.clientY
             };
         }
 
@@ -591,7 +534,14 @@ jQuery(document).ready(function($) {
             const dx = e.clientX - this.lastMousePosition.x;
             const dy = e.clientY - this.lastMousePosition.y;
 
-            this.position = { x: dx, y: dy };
+            this.position.x += dx;
+            this.position.y += dy;
+
+            this.lastMousePosition = {
+                x: e.clientX,
+                y: e.clientY
+            };
+
             this.updateTransform();
         }
         
@@ -677,39 +627,6 @@ jQuery(document).ready(function($) {
                     }
                 });
             });
-        }
-        
-        // Parse CSV line handling quoted values with commas
-        parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-                        // Double quotes inside quotes - add a single quote
-                        current += '"';
-                        i++;
-                    } else {
-                        // Toggle quote mode
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    // End of field
-                    result.push(current);
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            
-            // Add the last field
-            result.push(current);
-            
-            return result;
         }
         
         exportHotspots() {
@@ -802,8 +719,7 @@ jQuery(document).ready(function($) {
                 const line = lines[i].trim();
                 if (!line) continue;
                 
-                // Handle quoted values with commas
-                const values = this.parseCSVLine(line);
+                const values = line.split(',');
                 
                 if (values.length <= Math.max(xIndex, yIndex)) continue;
                 

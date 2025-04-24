@@ -6,7 +6,6 @@ jQuery(document).ready(function($) {
             this.container = $(container);
             this.wrapper = this.container.find('.image-map-wrapper');
             this.image = this.wrapper.find('img');
-            this.hotspots = this.wrapper.find('.hotspot');
             
             this.scale = 1;
             this.position = { x: 0, y: 0 };
@@ -84,7 +83,8 @@ jQuery(document).ready(function($) {
                 this.zoomAtPoint(factor, mouseX, mouseY);
             });
 
-            this.hotspots.on('click', (e) => {
+            // Handle hotspot clicks
+            this.container.on('click', '.hotspot', (e) => {
                 e.stopPropagation();
                 const url = $(e.currentTarget).data('url');
                 if (url) {
@@ -159,21 +159,17 @@ jQuery(document).ready(function($) {
         }
 
         updateTransform() {
-            // Update the wrapper transform for panning only
+            // Apply transform to the wrapper for panning
             this.wrapper.css({
                 transform: `translate(${this.position.x}px, ${this.position.y}px)`,
                 '--map-scale': this.scale
             });
             
-            // Apply scaling to the image with high quality rendering
-            this.image.css({
-                'transform': `scale(${this.scale})`,
-                'transform-origin': '0 0',
-                'image-rendering': 'high-quality',
-                '-ms-interpolation-mode': 'bicubic'
+            // Apply scaling directly to the image container
+            this.wrapper.find('.image-container').css({
+                transform: `scale(${this.scale})`,
+                transformOrigin: '0 0'
             });
-            
-            // No need to update hotspots as they use margin-left and margin-top for positioning
         }
 
         handleTouchDevices() {
@@ -236,8 +232,6 @@ jQuery(document).ready(function($) {
                 y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top
             };
         }
-        
-        // No need for updateHotspots method as we're using margin-left and margin-top for positioning
     }
 
     // Initialize all image maps on the page
