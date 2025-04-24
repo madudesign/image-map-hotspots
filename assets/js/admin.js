@@ -649,7 +649,7 @@ jQuery(document).ready(function($) {
                 const title = hotspot.title || '';
                 const label = hotspot.label || '';
                 const url = hotspot.blogUrl || '';
-                const color = hotspot.color || '#4f46e5';
+                const color = hotspot.color || '#E00000';
                 
                 csv += `${x},${y},"${title.replace(/"/g, '""')}","${label.replace(/"/g, '""')}","${url}","${color}"\n`;
             });
@@ -779,6 +779,32 @@ jQuery(document).ready(function($) {
                     console.log(`Scaled coordinates: (${x}, ${y})`);
                 }
                 
+                // Process color value - SIMPLIFIED APPROACH
+                let color = '#E00000'; // Default color
+                if (colorIndex >= 0 && values.length > colorIndex) {
+                    const rawColorValue = values[colorIndex].trim();
+                    console.log(`Raw color value for line ${i}: "${rawColorValue}"`);
+                    
+                    // Just use the color as is if it starts with #
+                    if (rawColorValue.startsWith('#')) {
+                        color = rawColorValue;
+                        console.log(`Using color with # for line ${i}: ${color}`);
+                    } 
+                    // Add # if it's missing
+                    else if (rawColorValue.match(/^[0-9A-F]{6}$/i)) {
+                        color = '#' + rawColorValue;
+                        console.log(`Added # to color for line ${i}: ${color}`);
+                    }
+                    // Special case for your CSV file
+                    else if (rawColorValue === 'E00000') {
+                        color = '#E00000';
+                        console.log(`Using hardcoded red color for line ${i}: ${color}`);
+                    }
+                    else {
+                        console.log(`Using default color for line ${i}, invalid color format: "${rawColorValue}"`);
+                    }
+                }
+                
                 const hotspot = {
                     id: 'hotspot_' + Date.now() + '_' + i,
                     x: x,
@@ -786,7 +812,7 @@ jQuery(document).ready(function($) {
                     title: titleIndex >= 0 && values.length > titleIndex ? values[titleIndex] : '',
                     label: labelIndex >= 0 && values.length > labelIndex ? values[labelIndex] : '',
                     blogUrl: urlIndex >= 0 && values.length > urlIndex ? values[urlIndex] : '',
-                    color: colorIndex >= 0 && values.length > colorIndex ? values[colorIndex] : '#4f46e5',
+                    color: color,
                     active: true,
                     order: newHotspots.length
                 };

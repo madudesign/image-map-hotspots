@@ -100,6 +100,12 @@
     /* Ensure hotspots maintain their size regardless of zoom */
     transform: scale(calc(1/var(--map-scale, 1)));
     transform-origin: center;
+    /* Add soft grow effect on hover */
+    transition: transform 0.2s ease-in-out;
+}
+
+.hotspot:hover {
+    transform: scale(calc(1.1/var(--map-scale, 1)));
 }
 
 .hotspot-inner {

@@ -83,6 +83,8 @@
     margin-bottom: 0;
     margin-right: 0;
     padding: 0;
+    /* Add soft grow effect on hover */
+    transition: transform 0.2s ease-in-out;
 }
 
 .mappinner-hotspot.is-dragging {
@@ -288,6 +290,10 @@
 /* Preview Mode */
 .mappinner-image-container.preview-mode .mappinner-hotspot {
     cursor: pointer;
+}
+
+.mappinner-hotspot:hover {
+    transform: scale(1.1);
 }
 
 .mappinner-image-container.preview-mode .mappinner-hotspot:hover {
