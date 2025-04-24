@@ -3,9 +3,9 @@
  * Plugin Name: MapPinner - Interactive Image Hotspots
  * Plugin URI: https://example.com/mappinner
  * Description: Create interactive image maps with customizable hotspots, tooltips, and links.
- * Version: 0.4.0
- * Author: Madu
- * Author URI: https://example.com
+ * Version: 1.0.0
+ * Author: Madu Design
+ * Author URI: https://madudesign.com
  * Text Domain: mappinner
  * Domain Path: /languages
  * License: GPL v2 or later
