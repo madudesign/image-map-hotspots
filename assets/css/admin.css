@@ -75,6 +75,8 @@
     font-weight: bold;
     color: white;
     z-index: 100;
+    transform-origin: center;
+    will-change: transform;
 }
 
 .mappinner-hotspot.is-dragging {
@@ -239,6 +241,7 @@
 /* Dialog */
 .ui-dialog {
     padding: 0;
+    background: #fff;
 }
 
 .ui-dialog .ui-dialog-titlebar {
@@ -251,12 +254,18 @@
 
 .ui-dialog .ui-dialog-content {
     padding: 15px;
+    background: #fff;
 }
 
 .ui-dialog .ui-dialog-buttonpane {
     margin-top: 0;
     padding: 15px;
     border-top: 1px solid #ddd;
+    background: #fff;
+}
+
+.mappinner-dialog {
+    background: #fff;
 }
 
 /* Toolbar */

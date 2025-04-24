@@ -158,9 +158,15 @@ jQuery(document).ready(function($) {
         }
 
         updateTransform() {
+            // Update the wrapper transform for panning and zooming
             this.wrapper.css({
                 transform: `translate(${this.position.x}px, ${this.position.y}px) scale(${this.scale})`,
                 '--map-scale': this.scale
+            });
+            
+            // Update hotspots to maintain their size regardless of zoom
+            this.wrapper.find('.hotspot').css({
+                transform: `translate(-50%, -50%) scale(${1/this.scale})`
             });
         }
 

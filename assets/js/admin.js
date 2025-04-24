@@ -260,9 +260,16 @@ jQuery(document).ready(function($) {
         }
 
         updateTransform() {
+            // Update the wrapper transform for panning and zooming
             this.wrapper.css({
                 transform: `translate(${this.position.x}px, ${this.position.y}px) scale(${this.scale})`,
-                transformOrigin: '0 0'
+                transformOrigin: '0 0',
+                '--map-scale': this.scale
+            });
+            
+            // Update hotspots to maintain their size regardless of zoom
+            this.wrapper.find('.mappinner-hotspot').css({
+                transform: `translate(-50%, -50%) scale(${1/this.scale})`
             });
         }
 

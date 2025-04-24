@@ -252,7 +252,7 @@ function image_map_hotspots_save_map() {
     }
 
     // Get and sanitize data
-    $map_id = isset($_POST['map_id']) && !empty($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : 'map_' . uniqid();
+    $map_id = isset($_POST['map_id']) && !empty($_POST['map_id']) ? sanitize_text_field($_POST['map_id']) : 'map_' . substr(uniqid(), -6);
     $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
     $image_url = isset($_POST['image_url']) ? esc_url_raw($_POST['image_url']) : '';
     $hotspots = isset($_POST['hotspots']) ? wp_unslash($_POST['hotspots']) : '[]';
