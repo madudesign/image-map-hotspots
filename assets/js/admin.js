@@ -180,7 +180,10 @@ jQuery(document).ready(function($) {
 
             uploader.on('select', () => {
                 const attachment = uploader.state().get('selection').first().toJSON();
-                this.updateImage(attachment.url);
+                // Get the URL and remove "-scaled" if present
+                let imageUrl = attachment.url;
+                imageUrl = imageUrl.replace('-scaled.', '.');
+                this.updateImage(imageUrl);
             });
 
             uploader.open();

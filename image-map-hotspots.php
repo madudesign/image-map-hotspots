@@ -286,6 +286,9 @@ function image_map_hotspots_save_map() {
         error_log('Could not get attachment ID from URL: ' . $image_url);
         $image_id = 0;
     }
+    
+    // Remove "-scaled" from the image URL if present
+    $image_url = str_replace('-scaled.', '.', $image_url);
 
     // Parse hotspots
     $hotspots_array = json_decode($hotspots, true);
@@ -472,7 +475,17 @@ function image_map_hotspots_shortcode($atts) {
     
     $map_data = $image_maps[$atts['id']];
     $map_title = $map_data['title'];
-    $image_url = wp_get_attachment_url($map_data['image_id']);
+    
+    // Get image URL
+    if (isset($map_data['image_url'])) {
+        // Use stored image URL if available
+        $image_url = $map_data['image_url'];
+    } else {
+        // Otherwise get from attachment ID
+        $image_url = wp_get_attachment_url($map_data['image_id']);
+        // Remove "-scaled" from the image URL if present
+        $image_url = str_replace('-scaled.', '.', $image_url);
+    }
     
     if (empty($image_url)) {
         error_log('Shortcode: Image URL is empty for map: ' . $atts['id']);
@@ -485,6 +498,9 @@ function image_map_hotspots_shortcode($atts) {
     // Ensure frontend scripts and styles are enqueued
     wp_enqueue_style('image-map-hotspots');
     wp_enqueue_script('image-map-hotspots');
+    
+    // Set up variables for the template
+    $map_id = 'map_' . $atts['id'];
     
     ob_start();
     include plugin_dir_path(__FILE__) . 'templates/shortcode.php';

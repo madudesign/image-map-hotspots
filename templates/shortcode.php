@@ -3,27 +3,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Get map data if ID is provided
-if (!empty($atts['id'])) {
-    $image_maps = get_option('image_map_hotspots_data', array());
-    
-    if (isset($image_maps[$atts['id']])) {
-        $map_data = $image_maps[$atts['id']];
-        $atts['image'] = wp_get_attachment_url($map_data['image_id']);
-        $atts['hotspots'] = json_encode($map_data['hotspots']);
-    }
-}
+// This file is included from the shortcode handler
+// Variables available: $map_id, $map_title, $image_url, $hotspots
 
-// Ensure we have an image
-if (empty($atts['image'])) {
-    return '';
-}
-
-// Parse hotspots
-$hotspots = json_decode(stripslashes($atts['hotspots']), true);
-if (!is_array($hotspots)) {
-    $hotspots = array();
-}
+// Hotspots are already passed from the shortcode handler
 
 // Generate unique ID
 $map_id = 'map_' . ((!empty($atts['id'])) ? $atts['id'] : uniqid());
@@ -36,7 +19,7 @@ wp_enqueue_script('image-map-hotspots');
 <div class="image-map-container" id="<?php echo esc_attr($map_id); ?>">
     <div class="image-map-wrapper">
         <div class="image-container" style="position: relative; display: inline-block;">
-            <img src="<?php echo esc_url($atts['image']); ?>" alt="Interactive Map" style="display: block; max-width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" />
+            <img src="<?php echo esc_url($image_url); ?>" alt="Interactive Map" style="display: block; max-width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" />
             
             <?php foreach ($hotspots as $index => $hotspot): ?>
                 <?php if (isset($hotspot['active']) && $hotspot['active']): ?>
