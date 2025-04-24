@@ -1,5 +1,5 @@
 === Image Map Hotspots ===
-Contributors: yourname
+Contributors: madu
 Tags: image map, hotspots, interactive images
 Requires at least: 5.0
 Tested up to: 6.4
