@@ -36,7 +36,7 @@ wp_enqueue_script('image-map-hotspots');
 <div class="image-map-container" id="<?php echo esc_attr($map_id); ?>">
     <div class="image-map-wrapper">
         <div class="image-container" style="position: relative; display: inline-block;">
-            <img src="<?php echo esc_url($atts['image']); ?>" alt="Interactive Map" style="display: block; max-width: 100%; height: auto;" />
+            <img src="<?php echo esc_url($atts['image']); ?>" alt="Interactive Map" style="display: block; max-width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" />
             
             <?php foreach ($hotspots as $index => $hotspot): ?>
                 <?php if (isset($hotspot['active']) && $hotspot['active']): ?>
