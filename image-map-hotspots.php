@@ -4,7 +4,7 @@
  * Plugin URI: https://example.com/mappinner
  * Description: Create interactive image maps with customizable hotspots, tooltips, and links.
  * Version: 1.0.0
- * Author: Madu Design
+ * Author: Madu
  * Author URI: https://madudesign.com
  * Text Domain: mappinner
  * Domain Path: /languages
