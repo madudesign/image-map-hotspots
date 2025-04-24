@@ -31,7 +31,7 @@
     transform-origin: 0 0;
     will-change: transform;
     image-rendering: -webkit-optimize-contrast !important; /* For Chrome */
-    image-rendering: crisp-edges !important; /* For Firefox */
+    /* image-rendering: crisp-edges !important; /* For Firefox */
 }
 
 .image-container {

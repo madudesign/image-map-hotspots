@@ -699,21 +699,29 @@ jQuery(document).ready(function($) {
                 return;
             }
             
+            // Detect separator (comma or semicolon)
+            const firstLine = lines[0].toLowerCase();
+            const separator = firstLine.includes(';') ? ';' : ',';
+            
             // Check the header
-            const header = lines[0].toLowerCase();
-            if (!header.includes('x') || !header.includes('y')) {
+            const header = firstLine;
+            if (!header.includes('x') && !header.includes('y')) {
                 alert('CSV must have at least x and y columns.');
                 return;
             }
             
             // Parse the header to find column indices
-            const columns = header.split(',');
+            const columns = header.split(separator);
             const xIndex = columns.indexOf('x');
             const yIndex = columns.indexOf('y');
             const titleIndex = columns.indexOf('title');
             const labelIndex = columns.indexOf('label');
             const urlIndex = columns.indexOf('url');
             const colorIndex = columns.indexOf('color');
+            
+            console.log('Detected separator:', separator);
+            console.log('Columns:', columns);
+            console.log('Indices:', { xIndex, yIndex, titleIndex, labelIndex, urlIndex, colorIndex });
             
             // Parse the data lines
             const newHotspots = [];
@@ -722,14 +730,54 @@ jQuery(document).ready(function($) {
                 const line = lines[i].trim();
                 if (!line) continue;
                 
-                const values = line.split(',');
+                // Split by the detected separator
+                const values = line.split(separator);
+                console.log(`Line ${i} values:`, values);
                 
-                if (values.length <= Math.max(xIndex, yIndex)) continue;
+                if (values.length <= Math.max(xIndex, yIndex)) {
+                    console.log(`Skipping line ${i}: not enough values`);
+                    continue;
+                }
                 
-                const x = parseFloat(values[xIndex]);
-                const y = parseFloat(values[yIndex]);
+                let x = parseFloat(values[xIndex]);
+                let y = parseFloat(values[yIndex]);
                 
-                if (isNaN(x) || isNaN(y) || x < 0 || x > 100 || y < 0 || y > 100) continue;
+                if (isNaN(x) || isNaN(y) || x < 0 || y < 0) {
+                    console.log(`Skipping line ${i}: invalid coordinates`);
+                    continue;
+                }
+                
+                // Scale coordinates to fit within 0-100 range if they're outside
+                if (x > 100 || y > 100) {
+                    console.log(`Scaling coordinates for line ${i}: (${x}, ${y})`);
+                    
+                    // Find max values in the CSV to use for scaling
+                    let maxX = 100;
+                    let maxY = 100;
+                    
+                    // Scan all lines to find maximum values
+                    for (let j = 1; j < lines.length; j++) {
+                        const scanLine = lines[j].trim();
+                        if (!scanLine) continue;
+                        
+                        const scanValues = scanLine.split(separator);
+                        if (scanValues.length <= Math.max(xIndex, yIndex)) continue;
+                        
+                        const scanX = parseFloat(scanValues[xIndex]);
+                        const scanY = parseFloat(scanValues[yIndex]);
+                        
+                        if (!isNaN(scanX) && scanX > maxX) maxX = scanX;
+                        if (!isNaN(scanY) && scanY > maxY) maxY = scanY;
+                    }
+                    
+                    console.log(`Max coordinates found: (${maxX}, ${maxY})`);
+                    
+                    // Scale coordinates
+                    if (maxX > 100) x = (x / maxX) * 100;
+                    if (maxY > 100) y = (y / maxY) * 100;
+                    
+                    console.log(`Scaled coordinates: (${x}, ${y})`);
+                }
                 
                 const hotspot = {
                     id: 'hotspot_' + Date.now() + '_' + i,
@@ -743,6 +791,7 @@ jQuery(document).ready(function($) {
                     order: newHotspots.length
                 };
                 
+                console.log(`Adding hotspot from line ${i}:`, hotspot);
                 newHotspots.push(hotspot);
             }
             
