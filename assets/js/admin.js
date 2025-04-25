@@ -116,7 +116,7 @@ jQuery(document).ready(function($) {
                 // Calculate new scale
                 const delta = e.originalEvent.deltaY;
                 const factor = delta > 0 ? 0.9 : 1.1;
-                const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
+                const newScale = Math.min(Math.max(this.scale * factor, 1), 8); // Min 100%, Max 500%
 
                 // Calculate new position to keep the point under the mouse fixed
                 this.position.x = mouseX - (pointX * newScale);
@@ -231,6 +231,35 @@ jQuery(document).ready(function($) {
                 transform: `scale(${this.scale})`,
                 transformOrigin: '0 0'
             });
+            
+            // Calculate hotspot scale based on zoom level
+            // Scale should be inversely proportional to zoom
+            // 100% zoom -> scale(1)
+            // 200% zoom -> scale(0.8)
+            // 500% zoom -> scale(0.5)
+            // 800% zoom -> scale(0.2)
+            let hotspotScale;
+            
+            if (this.scale <= 1) {
+                hotspotScale = 1; // At 100% zoom or less, keep normal size
+            } else if (this.scale <= 2) {
+                // Linear interpolation between 1 and 0.8 for zoom between 100% and 200%
+                hotspotScale = 1 - (0.2 * (this.scale - 1));
+            } else if (this.scale <= 5) {
+                // Linear interpolation between 0.8 and 0.5 for zoom between 200% and 500%
+                hotspotScale = 0.8 - (0.3 * (this.scale - 2) / 3);
+            } else {
+                // Linear interpolation between 0.5 and 0.2 for zoom between 500% and 800%
+                hotspotScale = 0.5 - (0.3 * (this.scale - 5) / 3);
+            }
+            
+            // Apply the calculated scale to all hotspots
+            this.wrapper.find('.mappinner-hotspot').css({
+                transform: `scale(${hotspotScale})`
+            });
+            
+            // Update CSS variable for other components that might need it
+            this.wrapper.css('--map-scale', this.scale);
         }
 
         zoom(factor) {
@@ -243,7 +272,7 @@ jQuery(document).ready(function($) {
             const pointY = (centerY - this.position.y) / this.scale;
 
             // Calculate new scale
-            const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
+            const newScale = Math.min(Math.max(this.scale * factor, 1), 8); // Min 100%, Max 500%
 
             // Calculate new position to keep the center point fixed
             this.position.x = centerX - (pointX * newScale);
