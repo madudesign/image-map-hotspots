@@ -1,0 +1,169 @@
+.image-map-container {
+    position: relative;
+    width: 100%;
+    height: auto;
+    min-height: 400px;
+    margin: 0;
+    background: #000000;
+    line-height: 0;
+    overflow: hidden;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.image-map-wrapper {
+    position: relative;
+    width: 100%;
+    height: auto;
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.image-map-wrapper img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    image-rendering: auto !important; /* Default to auto for best quality */
+    backface-visibility: hidden; /* Prevent blurry text during transitions */
+    transform-origin: 0 0;
+    will-change: transform;
+    image-rendering: -webkit-optimize-contrast !important; /* For Chrome */
+    /* image-rendering: crisp-edges !important; /* For Firefox */
+}
+
+.image-container {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.image-map-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+}
+
+.image-map-controls button {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.image-map-controls button:hover {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.image-map-zoom-level {
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: #666;
+    min-width: 60px;
+    justify-content: center;
+}
+
+.hotspot {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    margin-left: -16px; /* Half the width */
+    margin-top: -16px; /* Half the height */
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 100;
+    border-radius: 50%;
+    /* Fix for top offset issue */
+    margin-bottom: 0;
+    margin-right: 0;
+    padding: 0;
+    /* Ensure hotspots maintain their size regardless of zoom */
+    transform: scale(calc(1/var(--map-scale, 1)));
+    transform-origin: center;
+}
+
+.hotspot-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+}
+
+.hotspot-label {
+    position: absolute;
+    bottom: calc(100% + 20px);
+    left: 50%;
+    white-space: nowrap;
+    font-size: 16px;
+    padding: 15px;
+    background: rgba(0,0,0,0.7);
+    transform: translateX(-50%);
+    white-space:  nowrap;
+    display: none;
+    color: #fff;
+    border-radius:  10px;
+    pointer-events: none;
+    padding:  15px;
+    transform-origin: center;
+    font-weight: bold;
+    transition:  opacity 0.2s ease, visibility 0.2s ease;
+    line-height: 1.4;
+}
+
+.hotspot:hover .hotspot-label {
+    display: block;
+    z-index: 200;
+}
+
+.image-map-container.is-dragging {
+    cursor: grabbing !important;
+}
+
+.image-map-container.is-dragging * {
+    user-select: none;
+}
+
+@media (max-width: 768px) {
+    .image-map-container {
+        height: 100dvh;
+    }
+
+    .image-map-controls {
+        top: 10px;
+        right: 10px;
+        padding: 6px;
+        gap: 6px;
+    }
+
+    .image-map-controls button {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+}
