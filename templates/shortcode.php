@@ -9,7 +9,13 @@ if (!empty($atts['id'])) {
     
     if (isset($image_maps[$atts['id']])) {
         $map_data = $image_maps[$atts['id']];
+        
+        // Get image URL
         $atts['image'] = wp_get_attachment_url($map_data['image_id']);
+        
+        // Remove "-scaled" from the image URL to get the original image
+        $atts['image'] = str_replace('-scaled.', '.', $atts['image']);
+        
         $atts['hotspots'] = json_encode($map_data['hotspots']);
     }
 }
@@ -36,7 +42,7 @@ wp_enqueue_script('image-map-hotspots');
 <div class="image-map-container" id="<?php echo esc_attr($map_id); ?>">
     <div class="image-map-wrapper">
         <div class="image-container" style="position: relative; display: inline-block;">
-            <img src="<?php echo esc_url($atts['image']); ?>" alt="Interactive Map" style="display: block; max-width: 100%; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" />
+            <img src="<?php echo esc_url($atts['image']); ?>" alt="Interactive Map" style="display: block; max-width: none; width: auto; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" />
             
             <?php foreach ($hotspots as $index => $hotspot): ?>
                 <?php if (isset($hotspot['active']) && $hotspot['active']): ?>
@@ -46,12 +52,15 @@ wp_enqueue_script('image-map-hotspots');
                     ?>
                     <div 
                         class="hotspot"
-                        style="position: absolute; left: <?php echo esc_attr($hotspot['x']); ?>%; top: <?php echo esc_attr($hotspot['y']); ?>%; background-color: <?php echo esc_attr($hotspot['color']); ?>;"
+                        style="position: absolute; left: <?php echo esc_attr($hotspot['x']); ?>%; top: <?php echo esc_attr($hotspot['y']); ?>%;"
                         data-title="<?php echo esc_attr($hotspot['title']); ?>"
                         <?php if (!empty($url)): ?>
                         data-url="<?php echo esc_url($url); ?>"
                         <?php endif; ?>
                     >
+                        <div class="map-pin">
+                            <?php echo file_get_contents(plugin_dir_path(dirname(__FILE__)) . 'assets/svg/map-pin.svg'); ?>
+                        </div>
                         <div class="hotspot-inner"><?php echo esc_html($index + 1); ?></div>
                         <?php if (!empty($hotspot['label'])): ?>
                             <span class="hotspot-label"><?php echo esc_html($hotspot['label']); ?></span>

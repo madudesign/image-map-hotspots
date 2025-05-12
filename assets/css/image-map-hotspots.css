@@ -6,12 +6,12 @@
     margin: 0;
     background: #000000;
     line-height: 0;
-    overflow: hidden;
+    overflow: auto; /* Changed from hidden to auto to allow scrolling if needed */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    touch-action: none;
+    touch-action: pan-x pan-y; /* Allow panning in both directions */
 }
 
 .image-map-wrapper {
@@ -23,7 +23,8 @@
 }
 
 .image-map-wrapper img {
-    max-width: 100%;
+    max-width: none; /* Allow image to display at full size */
+    width: auto;
     height: auto;
     display: block;
     image-rendering: auto !important; /* Default to auto for best quality */
@@ -84,61 +85,75 @@
 
 .hotspot {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    margin-left: -16px; /* Half the width */
-    margin-top: -16px; /* Half the height */
+    width: 37px;
+    height: 51px; /* Match SVG dimensions */
+    margin-left: -18.5px; /* Half the width to center horizontally */
+    margin-top: -51px; /* Full height to position bottom point at coordinates */
     cursor: pointer;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     z-index: 100;
-    border-radius: 50%;
     /* Fix for top offset issue */
     margin-bottom: 0;
     margin-right: 0;
     padding: 0;
     /* Ensure hotspots maintain their size regardless of zoom */
     transform: scale(calc(1/var(--map-scale, 1)));
-    transform-origin: center;
+    transform-origin: bottom center; /* Pin point is at bottom center */
 }
 
-.hotspot-inner {
+.map-pin {
+    position: absolute;
     width: 100%;
     height: 100%;
-    border-radius: 50%;
-    background: inherit;
+    background-color: transparent !important;
+}
+
+/* Ensure SVG maintains its original colors */
+.map-pin svg {
+    width: 100%;
+    height: 100%;
+}
+
+
+.hotspot-inner {
+    position: absolute;
+    top: 5px; /* Position at the white circle center */
+    left: 0;
+    width: 100%;
+    height: 27px; /* Height of the white circle area */
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
     font-weight: bold;
-    color: white;
+    color: black; /* Black text as requested */
+    z-index: 2;
 }
 
 .hotspot-label {
     position: absolute;
-    bottom: calc(100% + 20px);
+    bottom: calc(100% - 5px); /* Adjusted to appear just above the pin head */
     left: 50%;
     white-space: nowrap;
     font-size: 16px;
     padding: 15px;
     background: rgba(0,0,0,0.7);
     transform: translateX(-50%);
-    white-space:  nowrap;
+    white-space: nowrap;
     display: none;
     color: #fff;
-    border-radius:  10px;
+    border-radius: 10px;
     pointer-events: none;
-    padding:  15px;
+    padding: 15px;
     transform-origin: center;
     font-weight: bold;
-    transition:  opacity 0.2s ease, visibility 0.2s ease;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
     line-height: 1.4;
+    z-index: 300; /* Ensure it's above the pin */
 }
 
 .hotspot:hover .hotspot-label {
     display: block;
-    z-index: 200;
+    z-index: 300; /* Match the z-index in the .hotspot-label rule */
 }
 
 .image-map-container.is-dragging {
