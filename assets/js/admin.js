@@ -281,7 +281,7 @@ jQuery(document).ready(function($) {
 
                 const element = $(`
                     <div class="mappinner-hotspot" data-id="${hotspot.id}">
-                        ${index + 1}
+                        ${hotspot.title || index + 1}
                         ${hotspot.label ? `<span class="mappinner-hotspot-label">${hotspot.label}</span>` : ''}
                     </div>
                 `).css({
