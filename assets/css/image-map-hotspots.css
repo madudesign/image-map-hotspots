@@ -1,12 +1,12 @@
 .image-map-container {
     position: relative;
-    width: 100%;
-    height: auto;
+    width: 1140px;
+    height: 874px;
     min-height: 400px;
     margin: 0;
     background: #000000;
     line-height: 0;
-    overflow: auto; /* Changed from hidden to auto to allow scrolling if needed */
+    overflow: hidden; /* Keep overflow hidden to prevent scrollbars */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -15,9 +15,11 @@
 }
 
 .image-map-wrapper {
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: auto;
+    height: 100%;
     transform-origin: 0 0;
     will-change: transform;
 }
@@ -39,6 +41,7 @@
     position: relative;
     display: inline-block;
     line-height: 0;
+    transform-origin: 0 0; /* Ensure transform origin is top-left */
 }
 
 .image-map-controls {

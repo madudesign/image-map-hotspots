@@ -6,24 +6,72 @@ jQuery(document).ready(function($) {
             this.container = $(container);
             this.wrapper = this.container.find('.image-map-wrapper');
             this.image = this.wrapper.find('img');
+            this.imageContainer = this.wrapper.find('.image-container');
             
             this.scale = 1;
+            this.initialScale = 1; // Will store the scale needed to fit image in container
             this.position = { x: 0, y: 0 };
             this.isDragging = false;
             this.lastMousePosition = { x: 0, y: 0 };
             
+            // Ensure image is loaded before initializing
+            console.log('Image complete:', this.image[0].complete);
+            console.log('Image src:', this.image[0].src);
+            
+            // Force image to load if not already loaded
             if (this.image[0].complete) {
-                this.init();
+                console.log('Image already loaded, initializing...');
+                setTimeout(() => this.init(), 100); // Small delay to ensure DOM is ready
             } else {
-                this.image.on('load', () => this.init());
+                console.log('Waiting for image to load...');
+                this.image.on('load', () => {
+                    console.log('Image loaded, initializing...');
+                    setTimeout(() => this.init(), 100); // Small delay to ensure DOM is ready
+                });
+                
+                // Fallback in case the load event doesn't fire
+                setTimeout(() => {
+                    if (!this.initialized) {
+                        console.log('Fallback initialization...');
+                        this.init();
+                    }
+                }, 1000);
             }
         }
 
         init() {
+            if (this.initialized) return;
+            this.initialized = true;
+            
+            console.log('Initializing image map...');
             this.createControls();
             this.bindEvents();
             this.handleTouchDevices();
+            this.calculateInitialScale();
             this.resetView();
+            
+            // Force a redraw after a short delay
+            setTimeout(() => {
+                console.log('Forcing redraw...');
+                this.updateTransform();
+            }, 200);
+        }
+        
+        calculateInitialScale() {
+            // Get the natural dimensions of the image
+            const imageWidth = this.image[0].naturalWidth;
+            const imageHeight = this.image[0].naturalHeight;
+            
+            // Get the dimensions of the container
+            const containerWidth = this.container.width();
+            const containerHeight = this.container.height();
+            
+            // Set initialScale to 1 (100%) as requested
+            this.initialScale = 1;
+            
+            console.log(`Image dimensions: ${imageWidth}x${imageHeight}`);
+            console.log(`Container dimensions: ${containerWidth}x${containerHeight}`);
+            console.log(`Initial scale: ${this.initialScale}`);
         }
 
         createControls() {
@@ -132,7 +180,7 @@ jQuery(document).ready(function($) {
             const imageX = (pointX - this.position.x) / this.scale;
             const imageY = (pointY - this.position.y) / this.scale;
 
-            // Calculate new scale, min 100%, max 1000%
+            // Calculate new scale, min is 1 (100%), max is 10 (1000%)
             let newScale = this.scale * factor;
             newScale = Math.max(1, Math.min(newScale, 10));
 
@@ -144,7 +192,10 @@ jQuery(document).ready(function($) {
 
                 // Update scale
                 this.scale = newScale;
-                this.controls.zoomLevel.text(Math.round(newScale * 100) + '%');
+                
+                // Display zoom percentage (100% to 1000%)
+                const displayPercentage = Math.round(this.scale * 100);
+                this.controls.zoomLevel.text(displayPercentage + '%');
 
                 // Update the transform
                 this.updateTransform();
@@ -152,13 +203,30 @@ jQuery(document).ready(function($) {
         }
 
         resetView() {
+            // Reset to scale 1 (100%)
             this.scale = 1;
+            
+            // Position the image so that its top-left corner is at the top-left of the container
+            // This ensures at least part of the image is visible
             this.position = { x: 0, y: 0 };
+            
+            // Update zoom level display to show 100%
             this.controls.zoomLevel.text('100%');
+            
+            // Log positioning information for debugging
+            console.log('Image natural dimensions:', this.image[0].naturalWidth, 'x', this.image[0].naturalHeight);
+            console.log('Container dimensions:', this.container.width(), 'x', this.container.height());
+            console.log('Position:', this.position);
+            console.log('Scale:', this.scale);
+            
+            // Update the transform
             this.updateTransform();
         }
 
         updateTransform() {
+            // Log transform values for debugging
+            console.log('Applying transform:', this.position.x, this.position.y, this.scale);
+            
             // Apply transform to the wrapper for panning
             this.wrapper.css({
                 transform: `translate(${this.position.x}px, ${this.position.y}px)`,
@@ -166,10 +234,27 @@ jQuery(document).ready(function($) {
             });
             
             // Apply scaling directly to the image container
-            this.wrapper.find('.image-container').css({
+            this.imageContainer.css({
                 transform: `scale(${this.scale})`,
                 transformOrigin: '0 0'
             });
+            
+            // Ensure the image is visible by checking its dimensions
+            const imageWidth = this.image[0].naturalWidth * this.scale;
+            const imageHeight = this.image[0].naturalHeight * this.scale;
+            console.log('Scaled image dimensions:', imageWidth, 'x', imageHeight);
+            
+            // Make sure the image is visible
+            this.image.css({
+                visibility: 'visible',
+                opacity: 1
+            });
+            
+            // Force a redraw of the entire container
+            this.container.css('opacity', 0.99);
+            setTimeout(() => {
+                this.container.css('opacity', 1);
+            }, 10);
         }
 
         handleTouchDevices() {
