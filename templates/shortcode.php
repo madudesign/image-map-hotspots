@@ -61,7 +61,7 @@ wp_enqueue_script('image-map-hotspots');
                         <div class="map-pin">
                             <?php echo file_get_contents(plugin_dir_path(dirname(__FILE__)) . 'assets/svg/map-pin.svg'); ?>
                         </div>
-                        <div class="hotspot-inner"><?php echo esc_html($index + 1); ?></div>
+                        <div class="hotspot-inner"><?php echo esc_html($hotspot['title']); ?></div>
                         <?php if (!empty($hotspot['label'])): ?>
                             <span class="hotspot-label"><?php echo esc_html($hotspot['label']); ?></span>
                         <?php endif; ?>
