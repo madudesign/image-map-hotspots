@@ -3,27 +3,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Get map data if ID is provided
-if (!empty($atts['id'])) {
-    $image_maps = get_option('image_map_hotspots_data', array());
-    
-    if (isset($image_maps[$atts['id']])) {
-        $map_data = $image_maps[$atts['id']];
-        
-        // Get image URL
-        $atts['image'] = wp_get_attachment_url($map_data['image_id']);
-        
-        // Remove "-scaled" from the image URL to get the original image
-        $atts['image'] = str_replace('-scaled.', '.', $atts['image']);
-        
-        $atts['hotspots'] = json_encode($map_data['hotspots']);
-    }
-}
-
 // Ensure we have an image
 if (empty($atts['image'])) {
-    return '';
+    return '<div class="image-map-error">Error: No image URL provided.</div>';
 }
+
+// Remove "-scaled" from the image URL to get the original image
+$atts['image'] = str_replace('-scaled.', '.', $atts['image']);
 
 // Parse hotspots - remove stripslashes to preserve special characters
 $hotspots = json_decode($atts['hotspots'], true);
@@ -52,7 +38,7 @@ wp_enqueue_script('image-map-hotspots');
                     ?>
                     <div 
                         class="hotspot"
-                        style="position: absolute; left: <?php echo esc_attr($hotspot['x']); ?>%; top: <?php echo esc_attr($hotspot['y']); ?>%;"
+                        style="position: absolute; left: <?php echo esc_attr($hotspot['x']); ?>%; top: <?php echo esc_attr($hotspot['y']); ?>%; z-index: <?php echo 1000 - $index; ?>;"
                         data-title="<?php echo esc_attr($hotspot['title']); ?>"
                         <?php if (!empty($url)): ?>
                         data-url="<?php echo esc_url($url); ?>"

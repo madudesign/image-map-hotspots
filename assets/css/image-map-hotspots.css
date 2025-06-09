@@ -93,7 +93,7 @@
     margin-left: -18.5px; /* Half the width to center horizontally */
     margin-top: -51px; /* Full height to position bottom point at coordinates */
     cursor: pointer;
-    z-index: 100;
+    /* z-index is now set inline based on hotspot order */
     /* Fix for top offset issue */
     margin-bottom: 0;
     margin-right: 0;
@@ -101,6 +101,12 @@
     /* Ensure hotspots maintain their size regardless of zoom */
     transform: scale(calc(1/var(--map-scale, 1)));
     transform-origin: bottom center; /* Pin point is at bottom center */
+    transition: z-index 0.01s; /* Quick transition for z-index changes */
+}
+
+/* Increase z-index on hover to bring hotspot to front */
+.hotspot:hover {
+    z-index: 2000 !important; /* Higher than any other hotspot, overrides inline style */
 }
 
 .map-pin {
@@ -165,6 +171,19 @@
 
 .image-map-container.is-dragging * {
     user-select: none;
+}
+
+/* Error messages */
+.image-map-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    margin: 10px 0;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 @media (max-width: 768px) {

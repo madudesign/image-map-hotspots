@@ -455,41 +455,248 @@ add_action('wp_ajax_mappinner_delete_map', 'image_map_hotspots_delete_map');
 
 // Shortcode handler
 function image_map_hotspots_shortcode($atts) {
+    try {
+        // Start with debug info that will be visible if something fails
+        $debug_output = '<!-- Image Map Hotspots Debug: ';
+        
+        $atts = shortcode_atts(array(
+            'id' => '',
+        ), $atts);
+        
+        $debug_output .= 'ID: ' . $atts['id'] . ' | ';
+        
+        if (empty($atts['id'])) {
+            error_log('Shortcode: Empty ID');
+            return '<div class="image-map-error">Error: Image map ID is required.</div>';
+        }
+        
+        $image_maps = get_option('image_map_hotspots_data', array());
+        $debug_output .= 'Maps in DB: ' . count($image_maps) . ' | ';
+        $debug_output .= 'Map keys: ' . implode(', ', array_keys($image_maps)) . ' | ';
+        
+        if (!isset($image_maps[$atts['id']])) {
+            error_log('Shortcode: Map not found with ID: ' . $atts['id']);
+            return '<div class="image-map-error">Error: Image map not found with ID: ' . esc_html($atts['id']) . '</div>';
+        }
+        
+        $map_data = $image_maps[$atts['id']];
+        $debug_output .= 'Map found | ';
+        
+        // Ensure we have all required data
+        if (!isset($map_data['title']) || !isset($map_data['image_id'])) {
+            error_log('Shortcode: Map data is incomplete for ID: ' . $atts['id']);
+            return '<div class="image-map-error">Error: Image map data is incomplete.</div>';
+        }
+        
+        $map_title = $map_data['title'];
+        $debug_output .= 'Title: ' . $map_title . ' | ';
+        
+        // Try to get image URL from attachment ID
+        $image_url = wp_get_attachment_url($map_data['image_id']);
+        $debug_output .= 'Image ID: ' . $map_data['image_id'] . ' | ';
+        $debug_output .= 'Initial Image URL: ' . ($image_url ? $image_url : 'empty') . ' | ';
+        
+        // If attachment URL is empty, try the stored URL
+        if (empty($image_url)) {
+            error_log('Shortcode: Image URL is empty for map: ' . $atts['id']);
+            
+            // Try to use the stored image URL as a fallback
+            if (isset($map_data['image_url']) && !empty($map_data['image_url'])) {
+                error_log('Shortcode: Using fallback image URL from map data: ' . $map_data['image_url']);
+                $image_url = $map_data['image_url'];
+                $debug_output .= 'Using fallback URL: ' . $image_url . ' | ';
+            } else {
+                return '<div class="image-map-error">Error: Image not found. Please check the image in the admin panel.</div>';
+            }
+        }
+        
+        // Ensure we have hotspots array
+        $hotspots = isset($map_data['hotspots']) ? $map_data['hotspots'] : array();
+        if (!is_array($hotspots)) {
+            error_log('Shortcode: Hotspots is not an array for map: ' . $atts['id']);
+            $hotspots = array();
+        }
+        
+        $debug_output .= 'Hotspots count: ' . count($hotspots) . ' -->';
+        
+        // Ensure frontend scripts and styles are enqueued
+        wp_enqueue_style('image-map-hotspots');
+        wp_enqueue_script('image-map-hotspots');
+        
+        // Set up the shortcode attributes for the template
+        $atts['image'] = $image_url;
+        $atts['hotspots'] = json_encode($hotspots);
+        
+        // Render the template
+        ob_start();
+        include plugin_dir_path(__FILE__) . 'templates/shortcode.php';
+        $output = ob_get_clean();
+        
+        if (empty($output)) {
+            error_log('Shortcode: Template output is empty for map: ' . $atts['id']);
+            return '<div class="image-map-error">Error: Failed to render image map template.</div>' . $debug_output;
+        }
+        
+        // Return the output with debug info
+        return $debug_output . $output;
+    } catch (Exception $e) {
+        error_log('Shortcode Exception: ' . $e->getMessage());
+        return '<div class="image-map-error">Error: An exception occurred while rendering the image map: ' . esc_html($e->getMessage()) . '</div>';
+    }
+}
+add_shortcode('image_map', 'image_map_hotspots_shortcode');
+
+// Debug shortcode to display image map data
+function image_map_hotspots_debug_shortcode($atts) {
+    if (!current_user_can('manage_options')) {
+        return '<div class="image-map-error">Error: You do not have permission to view debug information.</div>';
+    }
+    
     $atts = shortcode_atts(array(
         'id' => '',
     ), $atts);
     
     if (empty($atts['id'])) {
-        error_log('Shortcode: Empty ID');
-        return '<p>Error: Image map ID is required.</p>';
+        // List all available maps
+        $image_maps = get_option('image_map_hotspots_data', array());
+        
+        if (empty($image_maps)) {
+            return '<div class="image-map-error">No image maps found in the database.</div>';
+        }
+        
+        $output = '<div class="image-map-debug">';
+        $output .= '<h3>Available Image Maps</h3>';
+        $output .= '<ul>';
+        
+        foreach ($image_maps as $id => $map) {
+            $output .= '<li>';
+            $output .= '<strong>ID:</strong> ' . esc_html($id) . '<br>';
+            $output .= '<strong>Title:</strong> ' . esc_html($map['title']) . '<br>';
+            $output .= '<strong>Image ID:</strong> ' . esc_html($map['image_id']) . '<br>';
+            
+            if (isset($map['image_url'])) {
+                $output .= '<strong>Image URL:</strong> ' . esc_html($map['image_url']) . '<br>';
+            }
+            
+            $hotspots_count = isset($map['hotspots']) && is_array($map['hotspots']) ? count($map['hotspots']) : 0;
+            $output .= '<strong>Hotspots:</strong> ' . $hotspots_count . '<br>';
+            
+            // Add shortcode example
+            $output .= '<strong>Shortcode:</strong> <code>[image_map id="' . esc_html($id) . '"]</code><br>';
+            $output .= '<strong>Debug Shortcode:</strong> <code>[image_map_debug id="' . esc_html($id) . '"]</code>';
+            $output .= '</li>';
+        }
+        
+        $output .= '</ul>';
+        $output .= '</div>';
+        
+        return $output;
     }
     
+    // Get specific map data
     $image_maps = get_option('image_map_hotspots_data', array());
+    
     if (!isset($image_maps[$atts['id']])) {
-        error_log('Shortcode: Map not found with ID: ' . $atts['id']);
-        return '<p>Error: Image map not found.</p>';
+        return '<div class="image-map-error">Image map not found with ID: ' . esc_html($atts['id']) . '</div>';
     }
     
     $map_data = $image_maps[$atts['id']];
-    $map_title = $map_data['title'];
-    $image_url = wp_get_attachment_url($map_data['image_id']);
     
-    if (empty($image_url)) {
-        error_log('Shortcode: Image URL is empty for map: ' . $atts['id']);
-        return '<p>Error: Image not found.</p>';
+    $output = '<div class="image-map-debug">';
+    $output .= '<h3>Image Map Debug: ' . esc_html($map_data['title']) . '</h3>';
+    
+    $output .= '<h4>Map Data</h4>';
+    $output .= '<ul>';
+    $output .= '<li><strong>ID:</strong> ' . esc_html($atts['id']) . '</li>';
+    $output .= '<li><strong>Title:</strong> ' . esc_html($map_data['title']) . '</li>';
+    $output .= '<li><strong>Image ID:</strong> ' . esc_html($map_data['image_id']) . '</li>';
+    
+    // Check image URL from attachment
+    $attachment_url = wp_get_attachment_url($map_data['image_id']);
+    $output .= '<li><strong>Attachment URL:</strong> ' . ($attachment_url ? esc_html($attachment_url) : 'Not found') . '</li>';
+    
+    // Check stored image URL
+    if (isset($map_data['image_url'])) {
+        $output .= '<li><strong>Stored Image URL:</strong> ' . esc_html($map_data['image_url']) . '</li>';
+    } else {
+        $output .= '<li><strong>Stored Image URL:</strong> Not available</li>';
     }
     
+    // Check hotspots
     $hotspots = isset($map_data['hotspots']) ? $map_data['hotspots'] : array();
-    error_log('Shortcode: Found ' . count($hotspots) . ' hotspots for map: ' . $atts['id']);
+    $output .= '<li><strong>Hotspots Count:</strong> ' . count($hotspots) . '</li>';
+    $output .= '</ul>';
     
-    // Ensure frontend scripts and styles are enqueued
-    wp_enqueue_style('image-map-hotspots');
-    wp_enqueue_script('image-map-hotspots');
+    if (!empty($hotspots)) {
+        $output .= '<h4>Hotspots</h4>';
+        $output .= '<ul>';
+        
+        foreach ($hotspots as $index => $hotspot) {
+            $output .= '<li>';
+            $output .= '<strong>Hotspot #' . ($index + 1) . '</strong><br>';
+            $output .= '<strong>Position:</strong> X: ' . esc_html($hotspot['x']) . '%, Y: ' . esc_html($hotspot['y']) . '%<br>';
+            $output .= '<strong>Title:</strong> ' . esc_html($hotspot['title'] ?? '') . '<br>';
+            $output .= '<strong>Label:</strong> ' . esc_html($hotspot['label'] ?? '') . '<br>';
+            $output .= '<strong>URL:</strong> ' . esc_html($hotspot['blogUrl'] ?? $hotspot['url'] ?? '') . '<br>';
+            $output .= '<strong>Active:</strong> ' . (isset($hotspot['active']) && $hotspot['active'] ? 'Yes' : 'No');
+            $output .= '</li>';
+        }
+        
+        $output .= '</ul>';
+    }
     
-    ob_start();
-    include plugin_dir_path(__FILE__) . 'templates/shortcode.php';
-    $output = ob_get_clean();
+    $output .= '<h4>Shortcode</h4>';
+    $output .= '<code>[image_map id="' . esc_html($atts['id']) . '"]</code>';
+    
+    $output .= '</div>';
     
     return $output;
 }
-add_shortcode('image_map', 'image_map_hotspots_shortcode');
+add_shortcode('image_map_debug', 'image_map_hotspots_debug_shortcode');
+
+// Add CSS for debug output
+function image_map_hotspots_debug_css() {
+    echo '
+    <style>
+    .image-map-debug {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 20px;
+        margin: 20px 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .image-map-debug h3 {
+        margin-top: 0;
+        color: #23282d;
+    }
+    .image-map-debug h4 {
+        margin: 20px 0 10px;
+        color: #23282d;
+    }
+    .image-map-debug ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .image-map-debug li {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 3px;
+    }
+    .image-map-debug code {
+        display: inline-block;
+        padding: 3px 5px;
+        background: #f0f0f1;
+        border-radius: 3px;
+        font-family: Consolas, Monaco, monospace;
+        font-size: 13px;
+    }
+    </style>
+    ';
+}
+add_action('wp_head', 'image_map_hotspots_debug_css');
