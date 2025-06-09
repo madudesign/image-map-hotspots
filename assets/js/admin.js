@@ -193,6 +193,9 @@ jQuery(document).ready(function($) {
             // Clear wrapper and add new image
             this.wrapper.empty();
             
+            // Remove "-scaled" from the image URL to get the original image
+            url = url.replace('-scaled.', '.');
+            
             // Create image container
             const container = $('<div class="image-container"></div>');
             
