@@ -116,7 +116,7 @@ jQuery(document).ready(function($) {
                 // Calculate new scale
                 const delta = e.originalEvent.deltaY;
                 const factor = delta > 0 ? 0.9 : 1.1;
-                const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
+                const newScale = Math.min(Math.max(this.scale * factor, 1), 10); // Min 100%, Max 1000%
 
                 // Calculate new position to keep the point under the mouse fixed
                 this.position.x = mouseX - (pointX * newScale);
@@ -240,7 +240,7 @@ jQuery(document).ready(function($) {
             const pointY = (centerY - this.position.y) / this.scale;
 
             // Calculate new scale
-            const newScale = Math.min(Math.max(this.scale * factor, 1), 5); // Min 100%, Max 500%
+            const newScale = Math.min(Math.max(this.scale * factor, 1), 10); // Min 100%, Max 1000%
 
             // Calculate new position to keep the center point fixed
             this.position.x = centerX - (pointX * newScale);
